@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import {
-  BellIcon,
-  ChevronDownIcon,
-} from '@heroicons/vue/24/outline'
+import { BellIcon, ChevronDownIcon } from '@heroicons/vue/24/outline'
 </script>
 
 <template>
@@ -10,9 +7,7 @@ import {
     class="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-[#ECECEC] bg-white px-6"
   >
     <div>
-      <p class="text-sm text-gray-500">
-        Sistema de punto de venta
-      </p>
+      <p class="text-sm text-gray-500">Sistema de punto de venta</p>
     </div>
 
     <div class="flex items-center gap-4">
@@ -35,13 +30,9 @@ import {
         </div>
 
         <div class="hidden text-left md:block">
-          <p class="text-sm font-medium text-gray-800">
-            Usuario
-          </p>
+          <p class="text-sm font-medium text-gray-800">Usuario</p>
 
-          <p class="text-xs text-gray-500">
-            Administrador
-          </p>
+          <p class="text-xs text-gray-500">Administrador</p>
         </div>
 
         <ChevronDownIcon class="h-4 w-4 text-gray-400" />

@@ -7,19 +7,19 @@ const router = createRouter({
   routes: [
     // Autenticación
     {
-  path: '/login',
-  component: () => import('@/layouts/AuthLayout.vue'),
-  children: [
-    {
-      path: '',
-      name: 'login',
-      component: () => import('@/views/auth/LoginView.vue'),
-      meta: {
-        guestOnly: true,
-      },
+      path: '/login',
+      component: () => import('@/layouts/AuthLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'login',
+          component: () => import('@/views/auth/LoginView.vue'),
+          meta: {
+            guestOnly: true,
+          },
+        },
+      ],
     },
-  ],
-},
     // Aplicación
     {
       path: '/',

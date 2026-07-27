@@ -8,7 +8,6 @@ import {
   Cog6ToothIcon,
   CubeIcon,
   HomeIcon,
-  ReceiptPercentIcon,
   ShieldCheckIcon,
   ShoppingCartIcon,
   UsersIcon,
@@ -84,9 +83,7 @@ const navigation = [
         B
       </div>
 
-      <span class="ml-3 text-xl font-semibold text-[#2B2B2B]">
-        Belleza
-      </span>
+      <span class="ml-3 text-xl font-semibold text-[#2B2B2B]"> Belleza </span>
     </div>
 
     <nav class="flex-1 space-y-1 overflow-y-auto p-4">
@@ -97,19 +94,14 @@ const navigation = [
         class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-[#FBEFF3] hover:text-[#C56B86]"
         active-class="bg-[#FBEFF3] text-[#C56B86]"
       >
-        <component
-          :is="item.icon"
-          class="h-5 w-5"
-        />
+        <component :is="item.icon" class="h-5 w-5" />
 
         {{ item.name }}
       </RouterLink>
     </nav>
 
     <div class="border-t border-[#ECECEC] p-4">
-      <p class="px-4 text-xs text-gray-400">
-        Belleza POS
-      </p>
+      <p class="px-4 text-xs text-gray-400">Belleza POS</p>
     </div>
   </aside>
 </template>
