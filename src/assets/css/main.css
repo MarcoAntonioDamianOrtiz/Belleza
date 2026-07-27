@@ -47,3 +47,17 @@ textarea {
 button {
   cursor: pointer;
 }
+
+/* ========================================
+  SEARCH INPUT
+======================================== */
+
+.search-input::-webkit-search-cancel-button {
+  cursor: pointer;
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.search-input::-webkit-search-cancel-button:hover {
+  opacity: 0.7;
+}

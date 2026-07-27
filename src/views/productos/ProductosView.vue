@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { PlusIcon } from '@heroicons/vue/24/outline'
-
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
-
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import ProductoAccordion from './components/ProductoAccordion.vue'
+import ProductoModal from './components/ProductoModal.vue'
 
 import type { Producto } from '@/types/producto'
 import type { Variante } from '@/types/variante'
+import type { ProductoFormData } from './components/ProductoForm.vue'
+import type { VarianteFormData } from './components/VarianteForm.vue'
 
 const search = ref('')
 
@@ -56,12 +58,19 @@ const productos = ref<Producto[]>([
   },
 ])
 
+const modalOpen = ref(false)
+const modalMode = ref<'producto' | 'variante'>('producto')
+
+const selectedProduct = ref<Producto | null>(null)
+const selectedVariant = ref<Variante | null>(null)
+
+const confirmOpen = ref(false)
+const deleteType = ref<'producto' | 'variante' | null>(null)
+
 const filteredProducts = computed(() => {
   const term = search.value.trim().toLowerCase()
 
-  if (!term) {
-    return productos.value
-  }
+  if (!term) return productos.value
 
   return productos.value.filter((producto) => {
     const productMatch =
@@ -78,28 +87,108 @@ const filteredProducts = computed(() => {
   })
 })
 
+function closeModal() {
+  modalOpen.value = false
+  selectedProduct.value = null
+  selectedVariant.value = null
+}
+
 function newProduct() {
-  console.log('Nuevo producto')
+  selectedProduct.value = null
+  selectedVariant.value = null
+  modalMode.value = 'producto'
+  modalOpen.value = true
 }
 
 function editProduct(producto: Producto) {
-  console.log('Editar producto', producto)
-}
-
-function deleteProduct(producto: Producto) {
-  console.log('Eliminar producto', producto)
+  selectedProduct.value = producto
+  modalMode.value = 'producto'
+  modalOpen.value = true
 }
 
 function addVariant(producto: Producto) {
-  console.log('Agregar variante', producto)
+  selectedProduct.value = producto
+  selectedVariant.value = null
+  modalMode.value = 'variante'
+  modalOpen.value = true
 }
 
 function editVariant(variante: Variante) {
-  console.log('Editar variante', variante)
+  selectedVariant.value = variante
+  modalMode.value = 'variante'
+  modalOpen.value = true
 }
 
-function deleteVariant(variante: Variante) {
-  console.log('Eliminar variante', variante)
+function requestDeleteProduct(producto: Producto) {
+  selectedProduct.value = producto
+  selectedVariant.value = null
+  deleteType.value = 'producto'
+  confirmOpen.value = true
+}
+
+function requestDeleteVariant(variante: Variante) {
+  selectedVariant.value = variante
+  deleteType.value = 'variante'
+  confirmOpen.value = true
+}
+
+function saveProduct(data: ProductoFormData) {
+  if (selectedProduct.value) {
+    Object.assign(selectedProduct.value, data)
+  } else {
+    productos.value.push({
+      id: Date.now(),
+      ...data,
+      variantes: [],
+    })
+  }
+
+  closeModal()
+}
+
+function saveVariant(data: VarianteFormData) {
+  if (selectedVariant.value) {
+    Object.assign(selectedVariant.value, data)
+    closeModal()
+    return
+  }
+
+  if (!selectedProduct.value) return
+
+  selectedProduct.value.variantes.push({
+    id: Date.now(),
+    ...data,
+  })
+
+  closeModal()
+}
+
+function confirmDelete() {
+  if (deleteType.value === 'producto' && selectedProduct.value) {
+    productos.value = productos.value.filter(
+      (producto) => producto.id !== selectedProduct.value?.id,
+    )
+  }
+
+  if (deleteType.value === 'variante' && selectedVariant.value) {
+    for (const producto of productos.value) {
+      producto.variantes = producto.variantes.filter(
+        (variante) => variante.id !== selectedVariant.value?.id,
+      )
+    }
+  }
+
+  confirmOpen.value = false
+  deleteType.value = null
+  selectedProduct.value = null
+  selectedVariant.value = null
+}
+
+function cancelDelete() {
+  confirmOpen.value = false
+  deleteType.value = null
+  selectedProduct.value = null
+  selectedVariant.value = null
 }
 </script>
 
@@ -130,10 +219,10 @@ function deleteVariant(variante: Variante) {
         :key="producto.id"
         :producto="producto"
         @edit-product="editProduct"
-        @delete-product="deleteProduct"
+        @delete-product="requestDeleteProduct"
         @add-variant="addVariant"
         @edit-variant="editVariant"
-        @delete-variant="deleteVariant"
+        @delete-variant="requestDeleteVariant"
       />
 
       <div
@@ -145,5 +234,28 @@ function deleteVariant(variante: Variante) {
         <p class="mt-1 text-sm text-gray-500">Intenta realizar otra búsqueda.</p>
       </div>
     </div>
+
+    <ProductoModal
+      :open="modalOpen"
+      :mode="modalMode"
+      :producto="selectedProduct"
+      :variante="selectedVariant"
+      @close="closeModal"
+      @submit-product="saveProduct"
+      @submit-variant="saveVariant"
+    />
+
+    <ConfirmDialog
+      :open="confirmOpen"
+      :title="deleteType === 'producto' ? 'Eliminar producto' : 'Eliminar variante'"
+      :description="
+        deleteType === 'producto'
+          ? '¿Deseas eliminar este producto y sus variantes?'
+          : '¿Deseas eliminar esta variante?'
+      "
+      confirm-text="Eliminar"
+      @confirm="confirmDelete"
+      @cancel="cancelDelete"
+    />
   </section>
 </template>

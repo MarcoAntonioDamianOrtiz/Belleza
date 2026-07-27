@@ -18,8 +18,7 @@ const props = withDefaults(defineProps<Props>(), {
 const buttonClasses = computed(() => {
   const variants = {
     primary: 'bg-[#C56B86] text-white hover:bg-[#B55F79]',
-    secondary:
-      'border border-[#ECECEC] bg-white text-gray-700 hover:bg-gray-50',
+    secondary: 'border border-[#ECECEC] bg-white text-gray-700 hover:bg-gray-50',
     danger: 'bg-red-500 text-white hover:bg-red-600',
   }
 
