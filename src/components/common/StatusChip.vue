@@ -29,13 +29,6 @@ const classes = computed(() => {
     ]"
   >
     <span class="h-1.5 w-1.5 rounded-full bg-current" />
-
     {{ label }}
   </span>
 </template>
-
-<StatusChip status="success" label="Activo" />
-
-<StatusChip status="warning" label="Stock bajo" />
-
-<StatusChip status="danger" label="Agotado" />

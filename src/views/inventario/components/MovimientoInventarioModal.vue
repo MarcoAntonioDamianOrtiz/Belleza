@@ -27,12 +27,7 @@ function modalTitle() {
 </script>
 
 <template>
-  <BaseModal
-    :open="open"
-    :title="modalTitle()"
-    max-width="lg"
-    @close="emit('close')"
-  >
+  <BaseModal :open="open" :title="modalTitle()" max-width="lg" @close="emit('close')">
     <MovimientoInventarioForm
       :key="tipo"
       :tipo="tipo"

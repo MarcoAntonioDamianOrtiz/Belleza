@@ -83,8 +83,7 @@ function saveExit(data: MovimientoFormData) {
     },
   }
 
-  const variante =
-    variantes[data.varianteId as keyof typeof variantes]
+  const variante = variantes[data.varianteId as keyof typeof variantes]
 
   if (!variante || !data.cantidad) return
 
@@ -98,7 +97,6 @@ function saveExit(data: MovimientoFormData) {
 
   closeModal()
 }
-
 </script>
 
 <template>
@@ -119,8 +117,10 @@ function saveExit(data: MovimientoFormData) {
     </div>
 
     <div class="mb-6">
-      <RouterLink to="/inventario"
-        class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-[#C56B86]">
+      <RouterLink
+        to="/inventario"
+        class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-[#C56B86]"
+      >
         <ArrowLeftIcon class="h-4 w-4" />
         Volver al inventario
       </RouterLink>
@@ -146,7 +146,11 @@ function saveExit(data: MovimientoFormData) {
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="salida in filteredExits" :key="salida.id" class="transition-colors hover:bg-gray-50">
+            <tr
+              v-for="salida in filteredExits"
+              :key="salida.id"
+              class="transition-colors hover:bg-gray-50"
+            >
               <td class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ salida.fecha }}
               </td>
@@ -185,6 +189,11 @@ function saveExit(data: MovimientoFormData) {
         </table>
       </div>
     </div>
-    <MovimientoInventarioModal :open="modalOpen" tipo="salida" @close="closeModal" @submit="saveExit" />
+    <MovimientoInventarioModal
+      :open="modalOpen"
+      tipo="salida"
+      @close="closeModal"
+      @submit="saveExit"
+    />
   </section>
 </template>

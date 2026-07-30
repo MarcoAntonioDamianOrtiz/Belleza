@@ -26,10 +26,8 @@ withDefaults(defineProps<Props>(), {
       {{ description }}
     </p>
 
-    <div class="mt-5">
+    <div v-if="$slots.default" class="mt-5">
       <slot />
     </div>
   </div>
 </template>
-
-<AppBreadcrumb :items="[{ label: 'Productos' }]" />

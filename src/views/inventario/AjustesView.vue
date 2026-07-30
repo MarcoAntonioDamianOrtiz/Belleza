@@ -93,8 +93,7 @@ function saveAdjustment(data: MovimientoFormData) {
     },
   }
 
-  const variante =
-    variantes[data.varianteId as keyof typeof variantes]
+  const variante = variantes[data.varianteId as keyof typeof variantes]
 
   if (!variante || data.stockNuevo === undefined) return
 
@@ -131,8 +130,10 @@ function saveAdjustment(data: MovimientoFormData) {
     </div>
 
     <div class="mb-6">
-      <RouterLink to="/inventario"
-        class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-[#C56B86]">
+      <RouterLink
+        to="/inventario"
+        class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-[#C56B86]"
+      >
         <ArrowLeftIcon class="h-4 w-4" />
         Volver al inventario
       </RouterLink>
@@ -159,7 +160,11 @@ function saveAdjustment(data: MovimientoFormData) {
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="ajuste in filteredAdjustments" :key="ajuste.id" class="transition-colors hover:bg-gray-50">
+            <tr
+              v-for="ajuste in filteredAdjustments"
+              :key="ajuste.id"
+              class="transition-colors hover:bg-gray-50"
+            >
               <td class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ ajuste.fecha }}
               </td>
@@ -185,11 +190,17 @@ function saveAdjustment(data: MovimientoFormData) {
               </td>
 
               <td class="px-5 py-4">
-                <StatusChip v-if="adjustmentDifference(ajuste) > 0" status="success"
-                  :label="`+${adjustmentDifference(ajuste)}`" />
+                <StatusChip
+                  v-if="adjustmentDifference(ajuste) > 0"
+                  status="success"
+                  :label="`+${adjustmentDifference(ajuste)}`"
+                />
 
-                <StatusChip v-else-if="adjustmentDifference(ajuste) < 0" status="danger"
-                  :label="String(adjustmentDifference(ajuste))" />
+                <StatusChip
+                  v-else-if="adjustmentDifference(ajuste) < 0"
+                  status="danger"
+                  :label="String(adjustmentDifference(ajuste))"
+                />
 
                 <StatusChip v-else status="neutral" label="0" />
               </td>
@@ -210,6 +221,11 @@ function saveAdjustment(data: MovimientoFormData) {
         </table>
       </div>
     </div>
-    <MovimientoInventarioModal :open="modalOpen" tipo="ajuste" @close="closeModal" @submit="saveAdjustment" />
+    <MovimientoInventarioModal
+      :open="modalOpen"
+      tipo="ajuste"
+      @close="closeModal"
+      @submit="saveAdjustment"
+    />
   </section>
 </template>
