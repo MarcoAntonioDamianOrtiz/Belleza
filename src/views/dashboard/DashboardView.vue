@@ -1,79 +1,125 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import {
   ArchiveBoxIcon,
-  ArrowRightIcon,
   BanknotesIcon,
   CubeIcon,
   ShoppingCartIcon,
 } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
-import { formatCurrency } from '@/utils/formatCurrency'
 
-const stats = [
+import { getProductos } from '@/api/productos'
+import { getVariantes } from '@/api/variantes'
+import { getVentas } from '@/api/ventas'
+import { formatCurrency } from '@/utils/formatCurrency'
+import { formatDate } from '@/utils/formatDate'
+import { getFriendlyError } from '@/utils/apiError'
+import { showError } from '@/utils/notifications'
+
+import type { Variante } from '@/types/variante'
+import type { VentaResumen } from '@/types/venta'
+
+interface LowStockItem {
+  id: string
+  product: string
+  variant: string
+  stock: number
+  stockMinimo: number
+}
+
+const ventas = ref<VentaResumen[]>([])
+const variantes = ref<Variante[]>([])
+const productNames = ref(new Map<string, string>())
+const loading = ref(false)
+
+const todayKey = new Date().toDateString()
+
+const salesToday = computed(() =>
+  ventas.value.filter(
+    (item) => item.estado === 'COMPLETADA' && new Date(item.fecha).toDateString() === todayKey,
+  ),
+)
+
+const incomeToday = computed(() => salesToday.value.reduce((total, item) => total + item.total, 0))
+
+const lowStock = computed<LowStockItem[]>(() =>
+  variantes.value
+    .filter((item) => item.stock <= item.stockMinimo)
+    .map((item) => ({
+      id: item.id,
+      product: productNames.value.get(item.productoId) ?? 'Producto',
+      variant: item.nombre,
+      stock: item.stock,
+      stockMinimo: item.stockMinimo,
+    }))
+    .slice(0, 6),
+)
+
+const stats = computed(() => [
   {
     title: 'Ventas de hoy',
-    value: '18',
-    detail: '6 más que ayer',
+    value: String(salesToday.value.length),
+    detail: 'Ventas completadas',
     icon: ShoppingCartIcon,
   },
   {
     title: 'Ingresos de hoy',
-    value: formatCurrency(3420.5),
-    detail: 'Vista previa',
+    value: formatCurrency(incomeToday.value),
+    detail: 'Total registrado',
     icon: BanknotesIcon,
   },
   {
-    title: 'Productos',
-    value: '22',
-    detail: '48 variantes',
+    title: 'Variantes',
+    value: String(variantes.value.length),
+    detail: 'Disponibles en catálogo',
     icon: CubeIcon,
   },
   {
     title: 'Stock bajo',
-    value: '7',
-    detail: '3 agotadas',
+    value: String(lowStock.value.length),
+    detail: 'Requieren atención',
     icon: ArchiveBoxIcon,
   },
-]
+])
 
-const weeklySales = [
-  { label: 'Lun', value: 42 },
-  { label: 'Mar', value: 64 },
-  { label: 'Mié', value: 55 },
-  { label: 'Jue', value: 78 },
-  { label: 'Vie', value: 100 },
-  { label: 'Sáb', value: 82 },
-  { label: 'Dom', value: 36 },
-]
+const recentSales = computed(() => ventas.value.slice(0, 6))
 
-const recentSales = [
-  {
-    folio: 'V-0104',
-    date: '30/07/2026 10:12',
-    payment: 'Efectivo',
-    total: 395.4,
-  },
-  {
-    folio: 'V-0103',
-    date: '30/07/2026 09:45',
-    payment: 'Tarjeta',
-    total: 212.5,
-  },
-  {
-    folio: 'V-0102',
-    date: '30/07/2026 09:10',
-    payment: 'Transferencia',
-    total: 580,
-  },
-]
+async function loadData() {
+  loading.value = true
 
-const lowStock = [
-  { product: 'Labial Mate', variant: 'Rosa Nude', stock: 4 },
-  { product: 'Labial Mate', variant: 'Ciruela', stock: 0 },
-  { product: 'Crema Facial', variant: 'Hidratante 250 ml', stock: 3 },
-]
+  try {
+    const [sales, products, variants] = await Promise.all([
+      getVentas(),
+      getProductos(),
+      getVariantes(),
+    ])
+
+    ventas.value = sales
+    variantes.value = variants
+    productNames.value = new Map(products.map((item) => [item.id, item.nombre]))
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible cargar el resumen del sistema.'))
+  } finally {
+    loading.value = false
+  }
+}
+
+function statusFor(estado: VentaResumen['estado']) {
+  if (estado === 'COMPLETADA') {
+    return { status: 'success' as const, label: 'Completada' }
+  }
+
+  if (estado === 'CANCELADA') {
+    return { status: 'danger' as const, label: 'Cancelada' }
+  }
+
+  return { status: 'warning' as const, label: 'Devuelta' }
+}
+
+onMounted(loadData)
 </script>
 
 <template>
@@ -85,122 +131,125 @@ const lowStock = [
       <p class="mt-1 text-sm text-gray-500">Resumen general del sistema.</p>
     </div>
 
-    <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-      <div
-        v-for="stat in stats"
-        :key="stat.title"
-        class="rounded-2xl border border-[#ECECEC] bg-white p-5"
-      >
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <p class="text-sm text-gray-500">{{ stat.title }}</p>
-            <p class="mt-2 text-2xl font-semibold text-gray-900">{{ stat.value }}</p>
-            <p class="mt-2 text-xs text-gray-400">{{ stat.detail }}</p>
-          </div>
+    <BaseLoader v-if="loading" text="Cargando resumen..." />
 
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FBEFF3]">
-            <component :is="stat.icon" class="h-5 w-5 text-[#C56B86]" />
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
-      <div class="rounded-2xl border border-[#ECECEC] bg-white p-5">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="font-semibold text-gray-900">Ventas de la semana</h2>
-            <p class="mt-1 text-sm text-gray-500">Comportamiento diario.</p>
-          </div>
-
-          <RouterLink
-            to="/reportes"
-            class="inline-flex items-center gap-1 text-sm font-medium text-[#C56B86]"
-          >
-            Ver reportes
-            <ArrowRightIcon class="h-4 w-4" />
-          </RouterLink>
-        </div>
-
-        <div class="mt-8 flex h-64 items-end gap-3">
-          <div
-            v-for="item in weeklySales"
-            :key="item.label"
-            class="flex flex-1 flex-col items-center gap-3"
-          >
-            <div class="flex h-52 w-full items-end rounded-t-lg bg-gray-50">
-              <div class="w-full rounded-t-lg bg-[#C56B86]" :style="{ height: `${item.value}%` }" />
-            </div>
-            <span class="text-xs text-gray-500">{{ item.label }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="rounded-2xl border border-[#ECECEC] bg-white">
-        <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <div>
-            <h2 class="font-semibold text-gray-900">Stock bajo</h2>
-            <p class="mt-1 text-xs text-gray-500">Variantes que requieren atención.</p>
-          </div>
-
-          <RouterLink to="/inventario" class="text-sm font-medium text-[#C56B86]">
-            Ver inventario
-          </RouterLink>
-        </div>
-
-        <div class="divide-y divide-gray-100">
-          <div
-            v-for="item in lowStock"
-            :key="`${item.product}-${item.variant}`"
-            class="flex items-center justify-between gap-4 px-5 py-4"
-          >
+    <template v-else>
+      <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div
+          v-for="stat in stats"
+          :key="stat.title"
+          class="rounded-2xl border border-[#ECECEC] bg-white p-5"
+        >
+          <div class="flex items-start justify-between gap-4">
             <div>
-              <p class="text-sm font-medium text-gray-900">{{ item.product }}</p>
-              <p class="mt-1 text-xs text-gray-500">{{ item.variant }}</p>
+              <p class="text-sm text-gray-500">{{ stat.title }}</p>
+              <p class="mt-2 text-2xl font-semibold text-gray-900">
+                {{ stat.value }}
+              </p>
+              <p class="mt-2 text-xs text-gray-400">{{ stat.detail }}</p>
             </div>
 
-            <StatusChip
-              :status="item.stock <= 0 ? 'danger' : 'warning'"
-              :label="item.stock <= 0 ? 'Agotado' : `${item.stock} pza.`"
-            />
+            <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FBEFF3]">
+              <component :is="stat.icon" class="h-5 w-5 text-[#C56B86]" />
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="mt-6 overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
-      <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <div>
-          <h2 class="font-semibold text-gray-900">Ventas recientes</h2>
-          <p class="mt-1 text-xs text-gray-500">Últimas operaciones registradas.</p>
+      <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
+          <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div>
+              <h2 class="font-semibold text-gray-900">Ventas recientes</h2>
+              <p class="mt-1 text-xs text-gray-500">Últimas operaciones registradas.</p>
+            </div>
+
+            <RouterLink to="/ventas" class="text-sm font-medium text-[#C56B86]">
+              Ir al POS
+            </RouterLink>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[650px] text-left text-sm">
+              <thead class="border-b border-gray-200 bg-gray-50">
+                <tr class="text-xs font-semibold uppercase text-gray-500">
+                  <th class="px-5 py-4">Folio</th>
+                  <th class="px-5 py-4">Fecha</th>
+                  <th class="px-5 py-4">Usuario</th>
+                  <th class="px-5 py-4">Estado</th>
+                  <th class="px-5 py-4 text-right">Total</th>
+                </tr>
+              </thead>
+
+              <tbody class="divide-y divide-gray-100">
+                <tr v-for="sale in recentSales" :key="sale.id">
+                  <td class="px-5 py-4 font-medium text-gray-900">
+                    {{ sale.folio }}
+                  </td>
+                  <td class="px-5 py-4 text-gray-600">
+                    {{ formatDate(sale.fecha) }}
+                  </td>
+                  <td class="px-5 py-4 text-gray-600">{{ sale.usuario }}</td>
+                  <td class="px-5 py-4">
+                    <StatusChip
+                      :status="statusFor(sale.estado).status"
+                      :label="statusFor(sale.estado).label"
+                    />
+                  </td>
+                  <td class="px-5 py-4 text-right font-semibold text-gray-900">
+                    {{ formatCurrency(sale.total) }}
+                  </td>
+                </tr>
+
+                <tr v-if="!recentSales.length">
+                  <td colspan="5" class="px-6 py-10 text-center text-gray-500">
+                    No hay ventas registradas.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <RouterLink to="/ventas" class="text-sm font-medium text-[#C56B86]"> Ir al POS </RouterLink>
-      </div>
+        <div class="rounded-2xl border border-[#ECECEC] bg-white">
+          <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div>
+              <h2 class="font-semibold text-gray-900">Stock bajo</h2>
+              <p class="mt-1 text-xs text-gray-500">Variantes que requieren atención.</p>
+            </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[650px] text-left text-sm">
-          <thead class="border-b border-gray-200 bg-gray-50">
-            <tr class="text-xs font-semibold uppercase text-gray-500">
-              <th class="px-5 py-4">Folio</th>
-              <th class="px-5 py-4">Fecha</th>
-              <th class="px-5 py-4">Método de pago</th>
-              <th class="px-5 py-4 text-right">Total</th>
-            </tr>
-          </thead>
+            <RouterLink to="/inventario" class="text-sm font-medium text-[#C56B86]">
+              Ver inventario
+            </RouterLink>
+          </div>
 
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="sale in recentSales" :key="sale.folio">
-              <td class="px-5 py-4 font-medium text-gray-900">{{ sale.folio }}</td>
-              <td class="px-5 py-4 text-gray-600">{{ sale.date }}</td>
-              <td class="px-5 py-4 text-gray-600">{{ sale.payment }}</td>
-              <td class="px-5 py-4 text-right font-semibold text-gray-900">
-                {{ formatCurrency(sale.total) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+          <div class="divide-y divide-gray-100">
+            <div
+              v-for="item in lowStock"
+              :key="item.id"
+              class="flex items-center justify-between gap-4 px-5 py-4"
+            >
+              <div>
+                <p class="text-sm font-medium text-gray-900">
+                  {{ item.product }}
+                </p>
+                <p class="mt-1 text-xs text-gray-500">
+                  {{ item.variant }} · mínimo {{ item.stockMinimo }}
+                </p>
+              </div>
+
+              <StatusChip
+                :status="item.stock <= 0 ? 'danger' : 'warning'"
+                :label="item.stock <= 0 ? 'Agotado' : `${item.stock} pza.`"
+              />
+            </div>
+
+            <p v-if="!lowStock.length" class="px-5 py-8 text-center text-sm text-gray-500">
+              No hay productos con stock bajo.
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
+    </template>
   </section>
 </template>

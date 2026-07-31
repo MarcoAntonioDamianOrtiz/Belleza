@@ -4,25 +4,20 @@ import { MinusIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { formatCurrency } from '@/utils/formatCurrency'
 
-import type { CarritoItem, TipoPrecio } from '@/types/venta'
+import type { CarritoItem } from '@/types/venta'
 
 interface Props {
   items: CarritoItem[]
-  tipoPrecio: TipoPrecio
 }
 
 defineProps<Props>()
 
 const emit = defineEmits<{
-  increment: [varianteId: number]
-  decrement: [varianteId: number]
-  remove: [varianteId: number]
+  increment: [varianteId: string]
+  decrement: [varianteId: string]
+  remove: [varianteId: string]
   clear: []
 }>()
-
-function getPrice(item: CarritoItem, tipo: TipoPrecio) {
-  return tipo === 'mayoreo' ? item.variante.precioMayoreo : item.variante.precioMenudeo
-}
 </script>
 
 <template>
@@ -56,7 +51,7 @@ function getPrice(item: CarritoItem, tipo: TipoPrecio) {
               {{ item.variante.variante }} · {{ item.variante.sku }}
             </p>
             <p class="mt-2 text-sm font-semibold text-[#C56B86]">
-              {{ formatCurrency(getPrice(item, tipoPrecio)) }}
+              {{ formatCurrency(item.variante.precioMenudeo) }}
             </p>
           </div>
 
@@ -97,7 +92,7 @@ function getPrice(item: CarritoItem, tipo: TipoPrecio) {
           </div>
 
           <p class="font-semibold text-gray-900">
-            {{ formatCurrency(getPrice(item, tipoPrecio) * item.cantidad) }}
+            {{ formatCurrency(item.variante.precioMenudeo * item.cantidad) }}
           </p>
         </div>
       </article>

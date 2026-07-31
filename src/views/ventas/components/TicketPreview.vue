@@ -3,11 +3,13 @@ import { PrinterIcon } from '@heroicons/vue/24/outline'
 
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { formatCurrency } from '@/utils/formatCurrency'
+import { formatDate } from '@/utils/formatDate'
 
-import type { VentaRealizada } from '@/types/venta'
+import type { TicketEmpresa, VentaDetalle } from '@/types/venta'
 
 interface Props {
-  venta: VentaRealizada
+  venta: VentaDetalle
+  empresa?: TicketEmpresa | null
 }
 
 defineProps<Props>()
@@ -26,8 +28,15 @@ function printTicket() {
         >
           B
         </div>
-        <h3 class="mt-3 text-lg font-semibold">Belleza</h3>
-        <p class="text-xs text-gray-500">Punto de venta</p>
+        <h3 class="mt-3 text-lg font-semibold">
+          {{ empresa?.nombre ?? 'Belleza' }}
+        </h3>
+        <p v-if="empresa?.direccion" class="text-xs text-gray-500">
+          {{ empresa.direccion }}
+        </p>
+        <p v-if="empresa?.telefono" class="text-xs text-gray-500">
+          {{ empresa.telefono }}
+        </p>
       </div>
 
       <div class="my-5 border-y border-dashed border-gray-300 py-4 text-xs">
@@ -37,24 +46,30 @@ function printTicket() {
         </div>
         <div class="mt-2 flex justify-between gap-4">
           <span>Fecha</span>
-          <span class="font-medium">{{ venta.fecha }}</span>
+          <span class="font-medium">{{ formatDate(venta.fecha) }}</span>
         </div>
         <div class="mt-2 flex justify-between gap-4">
           <span>Cajero</span>
           <span class="font-medium">{{ venta.usuario }}</span>
         </div>
+        <div class="mt-2 flex justify-between gap-4">
+          <span>Pago</span>
+          <span class="font-medium">{{ venta.metodoPago }}</span>
+        </div>
       </div>
 
       <div class="space-y-3">
-        <div v-for="item in venta.items" :key="item.variante.id">
+        <div
+          v-for="(item, index) in venta.productos"
+          :key="`${item.producto}-${item.variante}-${index}`"
+        >
           <div class="flex justify-between gap-4">
-            <span class="font-medium">
-              {{ item.variante.producto }} - {{ item.variante.variante }}
-            </span>
+            <span class="font-medium"> {{ item.producto }} - {{ item.variante }} </span>
             <span>{{ item.cantidad }}</span>
           </div>
           <p class="mt-1 text-right text-xs text-gray-500">
-            {{ item.variante.sku }}
+            {{ formatCurrency(item.precioUnitario) }} ·
+            {{ formatCurrency(item.subtotal) }}
           </p>
         </div>
       </div>
@@ -81,7 +96,7 @@ function printTicket() {
       <div
         class="mt-5 border-t border-dashed border-gray-300 pt-4 text-center text-xs text-gray-500"
       >
-        Gracias por su compra.
+        {{ empresa?.mensajeTicket ?? 'Gracias por su compra.' }}
       </div>
     </div>
 

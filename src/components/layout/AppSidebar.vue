@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import {
   ArchiveBoxIcon,
   ArrowPathIcon,
@@ -8,29 +9,54 @@ import {
   Cog6ToothIcon,
   CubeIcon,
   HomeIcon,
+  RectangleGroupIcon,
   ShieldCheckIcon,
   ShoppingCartIcon,
   UsersIcon,
+  WalletIcon,
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 
+import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 
+const authStore = useAuthStore()
 const uiStore = useUiStore()
 
-const navigation = [
-  { name: 'Dashboard', route: '/', icon: HomeIcon },
-  { name: 'Ventas', route: '/ventas', icon: ShoppingCartIcon },
-  { name: 'Productos', route: '/productos', icon: CubeIcon },
-  { name: 'Inventario', route: '/inventario', icon: ArchiveBoxIcon },
-  { name: 'Caja', route: '/caja', icon: BanknotesIcon },
-  { name: 'Garantías', route: '/garantias', icon: ShieldCheckIcon },
-  { name: 'Devoluciones', route: '/devoluciones', icon: ArrowPathIcon },
-  { name: 'Usuarios', route: '/usuarios', icon: UsersIcon },
-  { name: 'Reportes', route: '/reportes', icon: ChartBarIcon },
-  { name: 'Bitácora', route: '/bitacora', icon: ClipboardDocumentListIcon },
-  { name: 'Configuración', route: '/configuracion', icon: Cog6ToothIcon },
-]
+const navigation = computed(() => {
+  const items = [
+    { name: 'Dashboard', route: '/', icon: HomeIcon },
+    { name: 'Ventas', route: '/ventas', icon: ShoppingCartIcon },
+    { name: 'Productos', route: '/productos', icon: CubeIcon },
+    { name: 'Categorías', route: '/categorias', icon: RectangleGroupIcon },
+    { name: 'Inventario', route: '/inventario', icon: ArchiveBoxIcon },
+    { name: 'Caja', route: '/caja', icon: BanknotesIcon },
+    {
+      name: 'Métodos de pago',
+      route: '/metodos-pago',
+      icon: WalletIcon,
+      adminOnly: true,
+    },
+    { name: 'Garantías', route: '/garantias', icon: ShieldCheckIcon },
+    { name: 'Devoluciones', route: '/devoluciones', icon: ArrowPathIcon },
+    { name: 'Usuarios', route: '/usuarios', icon: UsersIcon, adminOnly: true },
+    { name: 'Reportes', route: '/reportes', icon: ChartBarIcon, adminOnly: true },
+    {
+      name: 'Bitácora',
+      route: '/bitacora',
+      icon: ClipboardDocumentListIcon,
+      adminOnly: true,
+    },
+    {
+      name: 'Configuración',
+      route: '/configuracion',
+      icon: Cog6ToothIcon,
+      adminOnly: true,
+    },
+  ]
+
+  return items.filter((item) => !item.adminOnly || authStore.isAdmin)
+})
 </script>
 
 <template>

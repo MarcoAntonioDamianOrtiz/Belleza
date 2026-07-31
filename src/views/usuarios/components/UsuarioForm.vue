@@ -11,10 +11,12 @@ import type { RolUsuario, Usuario, UsuarioFormData } from '@/types/usuario'
 
 interface Props {
   usuario?: Usuario | null
+  loading?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   usuario: null,
+  loading: false,
 })
 
 const emit = defineEmits<{
@@ -26,22 +28,22 @@ const submitted = ref(false)
 
 const form = reactive<UsuarioFormData>({
   nombre: props.usuario?.nombre ?? '',
-  apellidos: props.usuario?.apellidos ?? '',
-  username: props.usuario?.username ?? '',
-  correo: props.usuario?.correo ?? '',
-  rol: props.usuario?.rol ?? 'empleado',
+  apellido: props.usuario?.apellido ?? '',
+  usuario: props.usuario?.usuario ?? '',
+  email: props.usuario?.email ?? '',
+  rol: props.usuario?.rol ?? 2,
   activo: props.usuario?.activo ?? true,
   password: '',
 })
 
 const roleOptions = [
-  { label: 'Administrador', value: 'administrador' },
-  { label: 'Empleado', value: 'empleado' },
+  { label: 'Administrador', value: 1 },
+  { label: 'Empleado', value: 2 },
 ]
 
 const emailError = computed(() => {
-  if (!submitted.value || !form.correo.trim()) return ''
-  return isValidEmail(form.correo) ? '' : 'Ingresa un correo electrónico válido.'
+  if (!submitted.value || !form.email.trim()) return ''
+  return isValidEmail(form.email) ? '' : 'Ingresa un correo electrónico válido.'
 })
 
 function submitForm() {
@@ -49,20 +51,21 @@ function submitForm() {
 
   if (
     !form.nombre.trim() ||
-    !form.apellidos.trim() ||
-    !form.username.trim() ||
-    !form.correo.trim() ||
-    !isValidEmail(form.correo)
+    !form.apellido.trim() ||
+    !form.usuario.trim() ||
+    !form.email.trim() ||
+    !isValidEmail(form.email) ||
+    (!props.usuario && !form.password?.trim())
   ) {
     return
   }
 
   emit('submit', {
     nombre: form.nombre.trim(),
-    apellidos: form.apellidos.trim(),
-    username: form.username.trim(),
-    correo: form.correo.trim(),
-    rol: form.rol as RolUsuario,
+    apellido: form.apellido.trim(),
+    usuario: form.usuario.trim(),
+    email: form.email.trim(),
+    rol: Number(form.rol) as RolUsuario,
     activo: form.activo,
     password: form.password?.trim() || undefined,
   })
@@ -74,10 +77,10 @@ function submitForm() {
     <div class="grid gap-5 sm:grid-cols-2">
       <BaseInput v-model="form.nombre" label="Nombre" placeholder="Nombre" required />
 
-      <BaseInput v-model="form.apellidos" label="Apellidos" placeholder="Apellidos" required />
+      <BaseInput v-model="form.apellido" label="Apellidos" placeholder="Apellidos" required />
 
       <BaseInput
-        v-model="form.username"
+        v-model="form.usuario"
         label="Usuario"
         placeholder="Nombre de usuario"
         autocomplete="username"
@@ -85,7 +88,7 @@ function submitForm() {
       />
 
       <BaseInput
-        v-model="form.correo"
+        v-model="form.email"
         type="email"
         label="Correo electrónico"
         placeholder="correo@ejemplo.com"
@@ -97,12 +100,13 @@ function submitForm() {
       <BaseSelect v-model="form.rol" label="Rol" :options="roleOptions" required />
 
       <BaseInput
+        v-if="!usuario"
         v-model="form.password"
         type="password"
-        :label="usuario ? 'Nueva contraseña (opcional)' : 'Contraseña'"
+        label="Contraseña"
         placeholder="••••••••"
         autocomplete="new-password"
-        :required="!usuario"
+        required
       />
     </div>
 
@@ -110,7 +114,7 @@ function submitForm() {
       <input v-model="form.activo" type="checkbox" class="h-4 w-4 accent-[#C56B86]" />
 
       <span>
-        <span class="block text-sm font-medium text-gray-900">Usuario activo</span>
+        <span class="block text-sm font-medium text-gray-900"> Usuario activo </span>
         <span class="mt-0.5 block text-xs text-gray-500">
           Permite que el usuario tenga acceso al sistema.
         </span>
@@ -120,7 +124,7 @@ function submitForm() {
     <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
       <BaseButton variant="secondary" @click="emit('cancel')"> Cancelar </BaseButton>
 
-      <BaseButton type="submit">
+      <BaseButton type="submit" :loading="loading">
         {{ usuario ? 'Guardar cambios' : 'Crear usuario' }}
       </BaseButton>
     </div>

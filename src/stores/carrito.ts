@@ -1,35 +1,26 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import type { CarritoItem, TipoPrecio, VarianteVenta } from '@/types/venta'
+import type { CarritoItem, VarianteVenta } from '@/types/venta'
 
 export const useCarritoStore = defineStore('carrito', () => {
   const items = ref<CarritoItem[]>([])
-  const tipoPrecio = ref<TipoPrecio>('menudeo')
-  const descuentoPorcentaje = ref(0)
-  const ivaPorcentaje = ref(16)
-
-  function precioUnitario(item: CarritoItem): number {
-    return tipoPrecio.value === 'mayoreo'
-      ? item.variante.precioMayoreo
-      : item.variante.precioMenudeo
-  }
+  const descuento = ref(0)
+  const ivaPorcentaje = ref(0)
 
   const subtotal = computed(() =>
-    items.value.reduce((total, item) => total + precioUnitario(item) * item.cantidad, 0),
+    items.value.reduce((total, item) => total + item.variante.precioMenudeo * item.cantidad, 0),
   )
 
-  const descuentoMonto = computed(() => subtotal.value * (descuentoPorcentaje.value / 100))
+  const descuentoAplicado = computed(() => Math.min(Math.max(0, descuento.value), subtotal.value))
 
-  const baseConDescuento = computed(() => Math.max(0, subtotal.value - descuentoMonto.value))
+  const baseConDescuento = computed(() => Math.max(0, subtotal.value - descuentoAplicado.value))
 
   const iva = computed(() => baseConDescuento.value * (ivaPorcentaje.value / 100))
 
   const total = computed(() => baseConDescuento.value + iva.value)
 
-  const totalArticulos = computed(() =>
-    items.value.reduce((total, item) => total + item.cantidad, 0),
-  )
+  const totalArticulos = computed(() => items.value.reduce((sum, item) => sum + item.cantidad, 0))
 
   function agregar(variante: VarianteVenta) {
     const existente = items.value.find((item) => item.variante.id === variante.id)
@@ -49,27 +40,14 @@ export const useCarritoStore = defineStore('carrito', () => {
     }
   }
 
-  function actualizarCantidad(varianteId: number, cantidad: number) {
-    const item = items.value.find((current) => current.variante.id === varianteId)
-
-    if (!item) return
-
-    if (cantidad <= 0) {
-      eliminar(varianteId)
-      return
-    }
-
-    item.cantidad = Math.min(cantidad, item.variante.stock)
-  }
-
-  function incrementar(varianteId: number) {
+  function incrementar(varianteId: string) {
     const item = items.value.find((current) => current.variante.id === varianteId)
 
     if (!item || item.cantidad >= item.variante.stock) return
     item.cantidad += 1
   }
 
-  function disminuir(varianteId: number) {
+  function disminuir(varianteId: string) {
     const item = items.value.find((current) => current.variante.id === varianteId)
 
     if (!item) return
@@ -82,29 +60,25 @@ export const useCarritoStore = defineStore('carrito', () => {
     item.cantidad -= 1
   }
 
-  function eliminar(varianteId: number) {
+  function eliminar(varianteId: string) {
     items.value = items.value.filter((item) => item.variante.id !== varianteId)
   }
 
   function vaciar() {
     items.value = []
-    descuentoPorcentaje.value = 0
-    tipoPrecio.value = 'menudeo'
+    descuento.value = 0
   }
 
   return {
     items,
-    tipoPrecio,
-    descuentoPorcentaje,
+    descuento,
     ivaPorcentaje,
     subtotal,
-    descuentoMonto,
+    descuentoAplicado,
     iva,
     total,
     totalArticulos,
-    precioUnitario,
     agregar,
-    actualizarCantidad,
     incrementar,
     disminuir,
     eliminar,

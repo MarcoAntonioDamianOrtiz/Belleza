@@ -1,8 +1,5 @@
-export type TipoPrecio = 'menudeo' | 'mayoreo'
-export type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia'
-
 export interface VarianteVenta {
-  id: number
+  id: string
   producto: string
   variante: string
   sku: string
@@ -17,18 +14,66 @@ export interface CarritoItem {
   cantidad: number
 }
 
-export interface VentaRealizada {
-  id: number
+export type EstadoVenta = 'COMPLETADA' | 'CANCELADA' | 'DEVUELTA'
+
+export interface VentaResumen {
+  id: string
   folio: string
   fecha: string
   usuario: string
-  tipoPrecio: TipoPrecio
-  metodoPago: MetodoPago
-  items: CarritoItem[]
+  total: number
+  estado: EstadoVenta
+}
+
+export interface DetalleVentaProducto {
+  producto: string
+  variante: string
+  cantidad: number
+  precioUnitario: number
+  subtotal: number
+}
+
+export interface VentaDetalle {
+  id: string
+  folio: string
+  fecha: string
+  usuario: string
+  metodoPago: string
+  caja: string
   subtotal: number
   descuento: number
   iva: number
   total: number
-  efectivoRecibido?: number
-  cambio?: number
+  estado: EstadoVenta
+  productos: DetalleVentaProducto[]
+}
+
+export interface VentaPayload {
+  caja_id: string
+  metodo_pago_id: string
+  descuento: number
+  productos: Array<{
+    variante_id: string
+    cantidad: number
+  }>
+}
+
+export interface VentaCreateResult {
+  success: boolean
+  folio: string
+  venta_id: string
+  message: string
+}
+
+export interface TicketEmpresa {
+  nombre: string
+  direccion?: string
+  telefono?: string
+  rfc?: string
+  mensajeTicket?: string
+}
+
+export interface TicketResultado {
+  venta: VentaDetalle
+  empresa: TicketEmpresa | null
 }

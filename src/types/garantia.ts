@@ -1,18 +1,26 @@
-export type EstadoGarantia = 'pendiente' | 'aprobada' | 'rechazada'
+export type EstadoGarantia = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'FINALIZADA'
+
+export type ResolucionGarantia = 'REEMPLAZO' | 'CAMBIO' | 'REPARACION'
 
 export interface Garantia {
-  id: number
-  folio: string
+  id: string
+  ventaId: string
   ventaFolio: string
-  fechaSolicitud: string
-  cliente: string
+  usuario: string
+  varianteId: string
   producto: string
   variante: string
-  sku: string
-  garantiaMeses: number
-  fechaLimite: string
-  vigente: boolean
   motivo: string
   estado: EstadoGarantia
-  resolucion?: string
+  resolucion: ResolucionGarantia | null
+  observaciones: string
+  fecha: string
+  fechaActualizacion?: string
+}
+
+export interface GarantiaPayload {
+  venta_id: string
+  variante_id: string
+  motivo: string
+  usuario_id?: string
 }

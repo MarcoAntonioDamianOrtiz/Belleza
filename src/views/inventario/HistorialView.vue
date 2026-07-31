@@ -1,79 +1,35 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ArrowLeftIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
-type TipoMovimiento = 'entrada' | 'salida' | 'ajuste'
+import { getMovimientosInventario } from '@/api/inventario'
+import { enrichMovements, loadInventoryCatalog } from './inventarioData'
+import { formatDate } from '@/utils/formatDate'
+import { getFriendlyError } from '@/utils/apiError'
+import { showError } from '@/utils/notifications'
 
-interface Movimiento {
-  id: number
-  fecha: string
-  producto: string
-  variante: string
-  sku: string
-  tipo: TipoMovimiento
-  cantidad: number
-  motivo: string
-}
+import type { TipoMovimientoInventario } from '@/types/inventario'
+import type { MovimientoVista } from './inventarioData'
 
 const search = ref('')
-const typeFilter = ref<'todos' | TipoMovimiento>('todos')
+const typeFilter = ref<'TODOS' | TipoMovimientoInventario>('TODOS')
+const loading = ref(false)
+const movimientos = ref<MovimientoVista[]>([])
 
-const movimientos = ref<Movimiento[]>([
-  {
-    id: 1,
-    fecha: '26/07/2026 14:20',
-    producto: 'Labial Mate',
-    variante: 'Rojo Cereza',
-    sku: 'LAB-MAT-ROJ',
-    tipo: 'ajuste',
-    cantidad: -2,
-    motivo: 'Corrección por conteo físico',
-  },
-  {
-    id: 2,
-    fecha: '26/07/2026 12:45',
-    producto: 'Labial Mate',
-    variante: 'Rojo Cereza',
-    sku: 'LAB-MAT-ROJ',
-    tipo: 'salida',
-    cantidad: -2,
-    motivo: 'Producto dañado',
-  },
-  {
-    id: 3,
-    fecha: '26/07/2026 10:30',
-    producto: 'Labial Mate',
-    variante: 'Rojo Cereza',
-    sku: 'LAB-MAT-ROJ',
-    tipo: 'entrada',
-    cantidad: 20,
-    motivo: 'Compra a proveedor',
-  },
-  {
-    id: 4,
-    fecha: '25/07/2026 16:15',
-    producto: 'Labial Mate',
-    variante: 'Rosa Nude',
-    sku: 'LAB-MAT-NUD',
-    tipo: 'entrada',
-    cantidad: 10,
-    motivo: 'Compra a proveedor',
-  },
-])
-
-const filteredMovements = computed(() => {
+const filtered = computed(() => {
   const term = search.value.trim().toLowerCase()
 
-  return movimientos.value.filter((movimiento) => {
-    const matchesType = typeFilter.value === 'todos' || movimiento.tipo === typeFilter.value
+  return movimientos.value.filter((item) => {
+    const matchesType = typeFilter.value === 'TODOS' || item.tipo === typeFilter.value
 
     const matchesSearch =
       !term ||
-      [movimiento.producto, movimiento.variante, movimiento.sku, movimiento.motivo].some((value) =>
+      [item.producto, item.variante, item.sku, item.observaciones, item.usuario].some((value) =>
         value.toLowerCase().includes(term),
       )
 
@@ -81,34 +37,39 @@ const filteredMovements = computed(() => {
   })
 })
 
-function statusFor(type: TipoMovimiento) {
-  if (type === 'entrada') {
-    return {
-      status: 'success' as const,
-      label: 'Entrada',
-    }
+function statusFor(type: TipoMovimientoInventario) {
+  if (type === 'ENTRADA') {
+    return { status: 'success' as const, label: 'Entrada' }
   }
 
-  if (type === 'salida') {
-    return {
-      status: 'danger' as const,
-      label: 'Salida',
-    }
+  if (type === 'SALIDA') {
+    return { status: 'danger' as const, label: 'Salida' }
   }
 
-  return {
-    status: 'info' as const,
-    label: 'Ajuste',
+  return { status: 'info' as const, label: 'Ajuste' }
+}
+
+function quantityLabel(item: MovimientoVista) {
+  if (item.tipo === 'ENTRADA') return `+${item.cantidad}`
+  if (item.tipo === 'SALIDA') return `-${item.cantidad}`
+  return String(item.cantidad)
+}
+
+async function loadData() {
+  loading.value = true
+
+  try {
+    const [catalog, items] = await Promise.all([loadInventoryCatalog(), getMovimientosInventario()])
+
+    movimientos.value = enrichMovements(items, catalog)
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible cargar el historial.'))
+  } finally {
+    loading.value = false
   }
 }
 
-function formatQuantity(quantity: number) {
-  if (quantity > 0) {
-    return `+${quantity}`
-  }
-
-  return String(quantity)
-}
+onMounted(loadData)
 </script>
 
 <template>
@@ -117,16 +78,13 @@ function formatQuantity(quantity: number) {
 
     <div class="mt-4 mb-8">
       <h1 class="text-2xl font-semibold text-gray-900">Historial de inventario</h1>
-
-      <p class="mt-1 text-sm text-gray-500">
-        Consulta los movimientos registrados en el inventario.
-      </p>
+      <p class="mt-1 text-sm text-gray-500">Consulta todos los movimientos registrados.</p>
     </div>
 
     <div class="mb-6">
       <RouterLink
         to="/inventario"
-        class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-[#C56B86]"
+        class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-[#C56B86]"
       >
         <ArrowLeftIcon class="h-4 w-4" />
         Volver al inventario
@@ -140,19 +98,18 @@ function formatQuantity(quantity: number) {
 
       <select
         v-model="typeFilter"
-        class="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-[#C56B86] focus:ring-2 focus:ring-[#C56B86]/15"
+        class="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-sm text-gray-700 outline-none focus:border-[#C56B86] focus:ring-2 focus:ring-[#C56B86]/15"
       >
-        <option value="todos">Todos los movimientos</option>
-
-        <option value="entrada">Entradas</option>
-
-        <option value="salida">Salidas</option>
-
-        <option value="ajuste">Ajustes</option>
+        <option value="TODOS">Todos los movimientos</option>
+        <option value="ENTRADA">Entradas</option>
+        <option value="SALIDA">Salidas</option>
+        <option value="AJUSTE">Ajustes</option>
       </select>
     </div>
 
-    <div class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
+    <BaseLoader v-if="loading" text="Cargando historial..." />
+
+    <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
       <div class="overflow-x-auto">
         <table class="w-full min-w-[950px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
@@ -164,63 +121,38 @@ function formatQuantity(quantity: number) {
               <th class="px-5 py-4">Tipo</th>
               <th class="px-5 py-4">Cantidad</th>
               <th class="px-5 py-4">Motivo</th>
+              <th class="px-5 py-4">Usuario</th>
             </tr>
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr
-              v-for="movimiento in filteredMovements"
-              :key="movimiento.id"
-              class="transition-colors hover:bg-gray-50"
-            >
+            <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
               <td class="whitespace-nowrap px-5 py-4 text-gray-600">
-                {{ movimiento.fecha }}
+                {{ formatDate(item.fecha) }}
               </td>
-
               <td class="px-5 py-4 font-medium text-gray-900">
-                {{ movimiento.producto }}
+                {{ item.producto }}
               </td>
-
-              <td class="px-5 py-4 text-gray-600">
-                {{ movimiento.variante }}
-              </td>
-
-              <td class="px-5 py-4 text-gray-600">
-                {{ movimiento.sku }}
-              </td>
-
+              <td class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
+              <td class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
               <td class="px-5 py-4">
                 <StatusChip
-                  :status="statusFor(movimiento.tipo).status"
-                  :label="statusFor(movimiento.tipo).label"
+                  :status="statusFor(item.tipo).status"
+                  :label="statusFor(item.tipo).label"
                 />
               </td>
-
-              <td class="px-5 py-4">
-                <span
-                  :class="[
-                    'font-semibold',
-                    movimiento.cantidad > 0
-                      ? 'text-green-600'
-                      : movimiento.cantidad < 0
-                        ? 'text-red-600'
-                        : 'text-gray-600',
-                  ]"
-                >
-                  {{ formatQuantity(movimiento.cantidad) }}
-                </span>
+              <td class="px-5 py-4 font-semibold text-gray-900">
+                {{ quantityLabel(item) }}
               </td>
-
               <td class="px-5 py-4 text-gray-600">
-                {{ movimiento.motivo }}
+                {{ item.observaciones || 'Sin observaciones' }}
               </td>
+              <td class="px-5 py-4 text-gray-600">{{ item.usuario }}</td>
             </tr>
 
-            <tr v-if="!filteredMovements.length">
-              <td colspan="7" class="px-6 py-12 text-center">
-                <p class="font-medium text-gray-900">No se encontraron movimientos</p>
-
-                <p class="mt-1 text-sm text-gray-500">Intenta cambiar la búsqueda o el filtro.</p>
+            <tr v-if="!filtered.length">
+              <td colspan="8" class="px-6 py-12 text-center text-gray-500">
+                No se encontraron movimientos.
               </td>
             </tr>
           </tbody>

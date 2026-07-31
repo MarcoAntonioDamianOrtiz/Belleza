@@ -1,8 +1,64 @@
 import api from './axios'
-import type { Variante } from '@/types/variante'
 
-export async function obtenerVariantePorCodigo(codigo: string): Promise<Variante> {
-  const { data } = await api.get<Variante>(`/variantes/codigo/${encodeURIComponent(codigo)}/`)
+import type { Variante, VariantePayload } from '@/types/variante'
 
-  return data
+interface VarianteApi {
+  id: string
+  producto: string
+  codigo_barras: string
+  sku: string
+  nombre: string
+  stock: number
+  stock_minimo: number
+  costo: string | number
+  precio_menudeo: string | number
+  precio_mayoreo: string | number
+  garantia_meses: number | null
+  activo: boolean
+  fecha_creacion?: string
+  fecha_actualizacion?: string
+}
+
+function mapVariante(item: VarianteApi): Variante {
+  return {
+    id: item.id,
+    productoId: item.producto,
+    codigoBarras: item.codigo_barras,
+    sku: item.sku,
+    nombre: item.nombre,
+    stock: Number(item.stock),
+    stockMinimo: Number(item.stock_minimo),
+    costo: Number(item.costo),
+    precioMenudeo: Number(item.precio_menudeo),
+    precioMayoreo: Number(item.precio_mayoreo),
+    garantiaMeses: item.garantia_meses,
+    activo: item.activo,
+    fechaCreacion: item.fecha_creacion,
+    fechaActualizacion: item.fecha_actualizacion,
+  }
+}
+
+export async function getVariantes(): Promise<Variante[]> {
+  const { data } = await api.get<VarianteApi[]>('/variantes/')
+  return data.map(mapVariante)
+}
+
+export async function getVarianteByCode(codigo: string): Promise<Variante> {
+  const { data } = await api.get<VarianteApi>(`/variantes/codigo/${encodeURIComponent(codigo)}/`)
+
+  return mapVariante(data)
+}
+
+export async function createVariante(payload: VariantePayload): Promise<Variante> {
+  const { data } = await api.post<VarianteApi>('/variantes/', payload)
+  return mapVariante(data)
+}
+
+export async function updateVariante(id: string, payload: VariantePayload): Promise<Variante> {
+  const { data } = await api.put<VarianteApi>(`/variantes/${id}/`, payload)
+  return mapVariante(data)
+}
+
+export async function deleteVariante(id: string): Promise<void> {
+  await api.delete(`/variantes/${id}/`)
 }

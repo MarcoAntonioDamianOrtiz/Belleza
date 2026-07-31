@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
-import type { Variante } from '@/types/variante'
 import StatusChip from '@/components/common/StatusChip.vue'
+import { formatCurrency } from '@/utils/formatCurrency'
+
+import type { Variante } from '@/types/variante'
 
 interface Props {
   variantes: Variante[]
@@ -15,15 +17,15 @@ const emit = defineEmits<{
   delete: [variante: Variante]
 }>()
 
-function stockStatus(stock: number) {
-  if (stock <= 0) {
+function stockStatus(variante: Variante) {
+  if (variante.stock <= 0) {
     return {
       status: 'danger' as const,
       label: 'Agotado',
     }
   }
 
-  if (stock <= 5) {
+  if (variante.stock <= variante.stockMinimo) {
     return {
       status: 'warning' as const,
       label: 'Stock bajo',
@@ -35,18 +37,11 @@ function stockStatus(stock: number) {
     label: 'Disponible',
   }
 }
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-  }).format(value)
-}
 </script>
 
 <template>
   <div class="overflow-x-auto">
-    <table class="w-full min-w-[1050px] text-left text-sm">
+    <table class="w-full min-w-[1120px] text-left text-sm">
       <thead class="border-y border-gray-200 bg-gray-50">
         <tr class="text-xs font-semibold uppercase text-gray-500">
           <th class="px-4 py-3">Variante</th>
@@ -56,6 +51,7 @@ function formatMoney(value: number) {
           <th class="px-4 py-3">Menudeo</th>
           <th class="px-4 py-3">Mayoreo</th>
           <th class="px-4 py-3">Stock</th>
+          <th class="px-4 py-3">Mínimo</th>
           <th class="px-4 py-3">Garantía</th>
           <th class="px-4 py-3 text-right">Acciones</th>
         </tr>
@@ -66,46 +62,37 @@ function formatMoney(value: number) {
           <td class="px-4 py-4 font-medium text-gray-900">
             {{ variante.nombre }}
           </td>
-
-          <td class="px-4 py-4 text-gray-600">
-            {{ variante.sku }}
-          </td>
-
+          <td class="px-4 py-4 text-gray-600">{{ variante.sku }}</td>
           <td class="px-4 py-4 font-mono text-xs text-gray-600">
             {{ variante.codigoBarras }}
           </td>
-
           <td class="px-4 py-4 text-gray-600">
-            {{ formatMoney(variante.costo) }}
+            {{ formatCurrency(variante.costo) }}
           </td>
-
           <td class="px-4 py-4 font-medium text-gray-900">
-            {{ formatMoney(variante.precioMenudeo) }}
+            {{ formatCurrency(variante.precioMenudeo) }}
           </td>
-
           <td class="px-4 py-4 text-gray-600">
-            {{ formatMoney(variante.precioMayoreo) }}
+            {{ formatCurrency(variante.precioMayoreo) }}
           </td>
-
           <td class="px-4 py-4">
             <div class="flex flex-col items-start gap-1">
               <span class="font-medium text-gray-900">
                 {{ variante.stock }}
               </span>
-
               <StatusChip
-                :status="stockStatus(variante.stock).status"
-                :label="stockStatus(variante.stock).label"
+                :status="stockStatus(variante).status"
+                :label="stockStatus(variante).label"
               />
             </div>
           </td>
-
+          <td class="px-4 py-4 text-gray-600">
+            {{ variante.stockMinimo }}
+          </td>
           <td class="px-4 py-4 text-gray-600">
             <span v-if="variante.garantiaMeses"> {{ variante.garantiaMeses }} meses </span>
-
-            <span v-else class="text-gray-400"> Sin garantía </span>
+            <span v-else class="text-gray-400">Sin garantía</span>
           </td>
-
           <td class="px-4 py-4">
             <div class="flex justify-end gap-1">
               <button
@@ -116,11 +103,10 @@ function formatMoney(value: number) {
               >
                 <PencilSquareIcon class="h-5 w-5" />
               </button>
-
               <button
                 type="button"
                 class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500"
-                aria-label="Eliminar variante"
+                aria-label="Desactivar variante"
                 @click="emit('delete', variante)"
               >
                 <TrashIcon class="h-5 w-5" />

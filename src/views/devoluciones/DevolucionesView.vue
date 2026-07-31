@@ -1,177 +1,312 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
-import { EyeIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import { computed, onMounted, reactive, ref } from 'vue'
+import {
+  CheckCircleIcon,
+  EyeIcon,
+  PlusIcon,
+  TrashIcon,
+  XCircleIcon,
+} from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
-import SearchBar from '@/components/common/SearchBar.vue'
-import StatusChip from '@/components/common/StatusChip.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import SearchBar from '@/components/common/SearchBar.vue'
+import StatusChip from '@/components/common/StatusChip.vue'
 
 import DevolucionDetalle from './DevolucionDetalle.vue'
 
-import { createMockId, normalizeSearch } from '@/utils/helpers'
+import {
+  aprobarDevolucion,
+  createDevolucion,
+  getDevoluciones,
+  rechazarDevolucion,
+} from '@/api/devoluciones'
+import { useAuthStore } from '@/stores/auth'
+import { formatDate } from '@/utils/formatDate'
+import { getFriendlyError } from '@/utils/apiError'
+import { showError, showSuccess } from '@/utils/notifications'
+import { buildVentaOptions, loadSoldVariantOptions, loadVentaCatalog } from '@/utils/ventaOptions'
 
-import type { Devolucion, EstadoDevolucion, TipoDevolucion } from '@/types/devolucion'
+import type { Devolucion, TipoDevolucion } from '@/types/devolucion'
+import type { SoldVariantOption, VentaCatalog } from '@/utils/ventaOptions'
 
+interface ReturnLine {
+  varianteId: string
+  label: string
+  cantidad: number
+  cantidadVendida: number
+}
+
+const authStore = useAuthStore()
+
+const items = ref<Devolucion[]>([])
+const catalog = ref<VentaCatalog | null>(null)
+const soldVariants = ref<SoldVariantOption[]>([])
+const selectedLines = ref<ReturnLine[]>([])
 const search = ref('')
-const statusFilter = ref<'todas' | EstadoDevolucion>('todas')
-const newModalOpen = ref(false)
-const detailModalOpen = ref(false)
-const selectedReturn = ref<Devolucion | null>(null)
-
-const returns = ref<Devolucion[]>([
-  {
-    id: 1,
-    folio: 'D-0001',
-    ventaFolio: 'V-0091',
-    fechaSolicitud: '29/07/2026 15:20',
-    cliente: 'Patricia Ruiz',
-    producto: 'Labial Mate',
-    variante: 'Rosa Nude',
-    cantidad: 1,
-    tipo: 'cambio',
-    motivo: 'El tono entregado no corresponde al solicitado.',
-    estado: 'pendiente',
-  },
-  {
-    id: 2,
-    folio: 'D-0002',
-    ventaFolio: 'V-0078',
-    fechaSolicitud: '26/07/2026 11:10',
-    cliente: 'Daniela Flores',
-    producto: 'Crema Facial',
-    variante: 'Hidratante 250 ml',
-    cantidad: 1,
-    tipo: 'reembolso',
-    motivo: 'El sello del producto estaba dañado.',
-    estado: 'aprobada',
-    resolucion: 'Reembolso autorizado por el monto pagado.',
-  },
-  {
-    id: 3,
-    folio: 'D-0003',
-    ventaFolio: 'V-0042',
-    fechaSolicitud: '20/07/2026 17:05',
-    cliente: 'Claudia Hernández',
-    producto: 'Labial Mate',
-    variante: 'Ciruela',
-    cantidad: 2,
-    tipo: 'cambio',
-    motivo: 'Solicitud fuera del periodo permitido.',
-    estado: 'rechazada',
-    resolucion: 'La solicitud fue registrada fuera del plazo de devolución.',
-  },
-])
+const statusFilter = ref('TODOS')
+const loading = ref(false)
+const loadingSale = ref(false)
+const saving = ref(false)
+const modalOpen = ref(false)
+const detailOpen = ref(false)
+const approveOpen = ref(false)
+const rejectOpen = ref(false)
+const selected = ref<Devolucion | null>(null)
+const formMessage = ref('')
 
 const form = reactive({
-  ventaFolio: '',
-  cliente: '',
-  producto: '',
-  variante: '',
-  cantidad: 1,
-  tipo: 'cambio' as TipoDevolucion,
+  ventaId: '',
+  tipo: 'NORMAL' as TipoDevolucion,
   motivo: '',
+  varianteId: '',
+  cantidad: 1,
+})
+
+const ventaOptions = computed(() => buildVentaOptions(catalog.value?.ventas ?? []))
+
+const variantOptions = computed(() =>
+  soldVariants.value.map((item) => ({
+    label: item.label,
+    value: item.value,
+  })),
+)
+
+const selectedSoldVariant = computed(() =>
+  soldVariants.value.find((item) => item.value === form.varianteId),
+)
+
+const typeOptions = computed(() => {
+  const options = [
+    { label: 'Normal', value: 'NORMAL' },
+    { label: 'Garantía', value: 'GARANTIA' },
+  ]
+
+  if (authStore.isAdmin) {
+    options.push({ label: 'Extraordinaria', value: 'EXTRAORDINARIA' })
+  }
+
+  return options
 })
 
 const statusOptions = [
-  { label: 'Todas las devoluciones', value: 'todas' },
-  { label: 'Pendientes', value: 'pendiente' },
-  { label: 'Aprobadas', value: 'aprobada' },
-  { label: 'Rechazadas', value: 'rechazada' },
+  { label: 'Todos los estados', value: 'TODOS' },
+  { label: 'Pendientes', value: 'PENDIENTE' },
+  { label: 'Aprobadas', value: 'APROBADA' },
+  { label: 'Rechazadas', value: 'RECHAZADA' },
+  { label: 'Finalizadas', value: 'FINALIZADA' },
 ]
 
-const typeOptions = [
-  { label: 'Cambio de producto', value: 'cambio' },
-  { label: 'Reembolso', value: 'reembolso' },
-]
+const filtered = computed(() => {
+  const term = search.value.trim().toLowerCase()
 
-const filteredReturns = computed(() => {
-  const term = normalizeSearch(search.value)
+  return items.value.filter((item) => {
+    const matchesStatus = statusFilter.value === 'TODOS' || item.estado === statusFilter.value
 
-  return returns.value.filter((item) => {
-    const statusMatches = statusFilter.value === 'todas' || item.estado === statusFilter.value
-
-    const searchMatches =
+    const matchesSearch =
       !term ||
-      [item.folio, item.ventaFolio, item.cliente, item.producto, item.variante, item.motivo].some(
-        (value) => normalizeSearch(value).includes(term),
+      [item.ventaFolio, item.tipo, item.motivo, item.usuario].some((value) =>
+        value.toLowerCase().includes(term),
       )
 
-    return statusMatches && searchMatches
+    return matchesStatus && matchesSearch
   })
 })
 
-function statusConfig(status: EstadoDevolucion) {
-  if (status === 'aprobada') {
+function statusFor(estado: Devolucion['estado']) {
+  if (estado === 'APROBADA') {
     return { status: 'success' as const, label: 'Aprobada' }
   }
 
-  if (status === 'rechazada') {
+  if (estado === 'RECHAZADA') {
     return { status: 'danger' as const, label: 'Rechazada' }
+  }
+
+  if (estado === 'FINALIZADA') {
+    return { status: 'info' as const, label: 'Finalizada' }
   }
 
   return { status: 'warning' as const, label: 'Pendiente' }
 }
 
-function openDetail(item: Devolucion) {
-  selectedReturn.value = item
-  detailModalOpen.value = true
+async function loadData() {
+  loading.value = true
+
+  try {
+    const [returns, salesCatalog] = await Promise.all([getDevoluciones(), loadVentaCatalog()])
+
+    items.value = returns
+    catalog.value = salesCatalog
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible cargar las devoluciones.'))
+  } finally {
+    loading.value = false
+  }
 }
 
-function resetForm() {
-  form.ventaFolio = ''
-  form.cliente = ''
-  form.producto = ''
-  form.variante = ''
+async function selectSale(value: string | number) {
+  form.ventaId = String(value)
+  form.varianteId = ''
   form.cantidad = 1
-  form.tipo = 'cambio'
-  form.motivo = ''
+  selectedLines.value = []
+  soldVariants.value = []
+  formMessage.value = ''
+
+  if (!form.ventaId || !catalog.value) return
+
+  loadingSale.value = true
+
+  try {
+    const { opciones } = await loadSoldVariantOptions(form.ventaId, catalog.value)
+    soldVariants.value = opciones
+
+    if (!opciones.length) {
+      formMessage.value = 'No fue posible identificar productos disponibles en esta venta.'
+    }
+  } catch (error) {
+    formMessage.value = getFriendlyError(error, 'No fue posible cargar los productos de la venta.')
+  } finally {
+    loadingSale.value = false
+  }
 }
 
-function saveReturn() {
-  if (
-    !form.ventaFolio.trim() ||
-    !form.cliente.trim() ||
-    !form.producto.trim() ||
-    !form.variante.trim() ||
-    form.cantidad <= 0 ||
-    !form.motivo.trim()
-  ) {
+function openCreate() {
+  form.ventaId = ''
+  form.tipo = 'NORMAL'
+  form.motivo = ''
+  form.varianteId = ''
+  form.cantidad = 1
+  soldVariants.value = []
+  selectedLines.value = []
+  formMessage.value = ''
+  modalOpen.value = true
+}
+
+function openDetail(item: Devolucion) {
+  selected.value = item
+  detailOpen.value = true
+}
+
+function addReturnLine() {
+  const variant = selectedSoldVariant.value
+  const quantity = Number(form.cantidad)
+
+  if (!variant || quantity <= 0) {
+    formMessage.value = 'Selecciona un producto e indica una cantidad válida.'
     return
   }
 
-  returns.value.unshift({
-    id: createMockId(),
-    folio: `D-${String(returns.value.length + 1).padStart(4, '0')}`,
-    ventaFolio: form.ventaFolio.trim(),
-    fechaSolicitud: new Date().toLocaleString('es-MX'),
-    cliente: form.cliente.trim(),
-    producto: form.producto.trim(),
-    variante: form.variante.trim(),
-    cantidad: Number(form.cantidad),
-    tipo: form.tipo,
-    motivo: form.motivo.trim(),
-    estado: 'pendiente',
-  })
+  if (quantity > variant.cantidadVendida) {
+    formMessage.value = `La cantidad máxima para este producto es ${variant.cantidadVendida}.`
+    return
+  }
 
-  newModalOpen.value = false
-  resetForm()
+  const existing = selectedLines.value.find((item) => item.varianteId === variant.value)
+
+  if (existing) {
+    existing.cantidad = quantity
+  } else {
+    selectedLines.value.push({
+      varianteId: variant.value,
+      label: variant.label,
+      cantidad: quantity,
+      cantidadVendida: variant.cantidadVendida,
+    })
+  }
+
+  form.varianteId = ''
+  form.cantidad = 1
+  formMessage.value = ''
 }
 
-function approveReturn(item: Devolucion) {
-  item.estado = 'aprobada'
-  item.resolucion = 'Devolución aprobada. Pendiente de aplicar el cambio o reembolso.'
-  detailModalOpen.value = false
+function removeReturnLine(varianteId: string) {
+  selectedLines.value = selectedLines.value.filter((item) => item.varianteId !== varianteId)
 }
 
-function rejectReturn(item: Devolucion) {
-  item.estado = 'rechazada'
-  item.resolucion = 'Devolución rechazada durante la revisión.'
-  detailModalOpen.value = false
+async function saveReturn() {
+  if (!form.ventaId || !form.motivo.trim() || !selectedLines.value.length) {
+    formMessage.value = 'Completa la venta, los productos y el motivo.'
+    return
+  }
+
+  saving.value = true
+  formMessage.value = ''
+
+  try {
+    await createDevolucion({
+      venta_id: form.ventaId,
+      tipo: form.tipo,
+      motivo: form.motivo.trim(),
+      productos: selectedLines.value.map((item) => ({
+        variante_id: item.varianteId,
+        cantidad: item.cantidad,
+      })),
+      autorizado_por:
+        form.tipo === 'EXTRAORDINARIA' ? (authStore.user?.id ?? undefined) : undefined,
+    })
+
+    modalOpen.value = false
+    await showSuccess('Devolución registrada correctamente.')
+    await loadData()
+  } catch (error) {
+    formMessage.value = getFriendlyError(error, 'No fue posible registrar la devolución.')
+  } finally {
+    saving.value = false
+  }
 }
+
+function requestApprove(item: Devolucion) {
+  selected.value = item
+  approveOpen.value = true
+}
+
+function requestReject(item: Devolucion) {
+  selected.value = item
+  rejectOpen.value = true
+}
+
+async function confirmApprove() {
+  if (!selected.value) return
+
+  saving.value = true
+
+  try {
+    await aprobarDevolucion(selected.value.id)
+    approveOpen.value = false
+    await showSuccess('Devolución aprobada correctamente.')
+    await loadData()
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible aprobar la devolución.'))
+  } finally {
+    saving.value = false
+    selected.value = null
+  }
+}
+
+async function confirmReject() {
+  if (!selected.value) return
+
+  saving.value = true
+
+  try {
+    await rechazarDevolucion(selected.value.id)
+    rejectOpen.value = false
+    await showSuccess('Devolución rechazada correctamente.')
+    await loadData()
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible rechazar la devolución.'))
+  } finally {
+    saving.value = false
+    selected.value = null
+  }
+}
+
+onMounted(loadData)
 </script>
 
 <template>
@@ -181,18 +316,20 @@ function rejectReturn(item: Devolucion) {
     <div class="mt-4 mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
       <div>
         <h1 class="text-2xl font-semibold text-gray-900">Devoluciones</h1>
-        <p class="mt-1 text-sm text-gray-500">Registra solicitudes y consulta su historial.</p>
+        <p class="mt-1 text-sm text-gray-500">
+          Registra y administra devoluciones relacionadas con ventas.
+        </p>
       </div>
 
-      <BaseButton @click="newModalOpen = true">
+      <BaseButton @click="openCreate">
         <PlusIcon class="h-4 w-4" />
-        Registrar devolución
+        Nueva devolución
       </BaseButton>
     </div>
 
     <div class="mb-5 flex flex-col gap-3 lg:flex-row">
       <div class="w-full max-w-xl">
-        <SearchBar v-model="search" placeholder="Buscar folio, venta, cliente o producto..." />
+        <SearchBar v-model="search" placeholder="Buscar venta, tipo, usuario o motivo..." />
       </div>
 
       <div class="w-full lg:w-64">
@@ -200,56 +337,72 @@ function rejectReturn(item: Devolucion) {
       </div>
     </div>
 
-    <div class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
+    <BaseLoader v-if="loading" text="Cargando devoluciones..." />
+
+    <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1000px] text-left text-sm">
+        <table class="w-full min-w-[950px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
-              <th class="px-5 py-4">Folio</th>
+              <th class="px-5 py-4">Fecha</th>
               <th class="px-5 py-4">Venta</th>
-              <th class="px-5 py-4">Cliente</th>
-              <th class="px-5 py-4">Producto / Variante</th>
               <th class="px-5 py-4">Tipo</th>
+              <th class="px-5 py-4">Motivo</th>
               <th class="px-5 py-4">Estado</th>
               <th class="px-5 py-4 text-right">Acciones</th>
             </tr>
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in filteredReturns" :key="item.id" class="hover:bg-gray-50">
-              <td class="px-5 py-4">
-                <p class="font-medium text-gray-900">{{ item.folio }}</p>
-                <p class="mt-1 text-xs text-gray-500">{{ item.fechaSolicitud }}</p>
+            <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
+              <td class="whitespace-nowrap px-5 py-4 text-gray-600">
+                {{ formatDate(item.fecha) }}
               </td>
-              <td class="px-5 py-4 text-gray-600">{{ item.ventaFolio }}</td>
-              <td class="px-5 py-4 text-gray-600">{{ item.cliente }}</td>
-              <td class="px-5 py-4">
-                <p class="font-medium text-gray-900">{{ item.producto }}</p>
-                <p class="mt-1 text-xs text-gray-500">
-                  {{ item.variante }} · {{ item.cantidad }} pza.
-                </p>
-              </td>
-              <td class="px-5 py-4 capitalize text-gray-600">{{ item.tipo }}</td>
+              <td class="px-5 py-4 font-medium text-gray-900">{{ item.ventaFolio }}</td>
+              <td class="px-5 py-4 text-gray-600">{{ item.tipo }}</td>
+              <td class="max-w-xs truncate px-5 py-4 text-gray-600">{{ item.motivo }}</td>
               <td class="px-5 py-4">
                 <StatusChip
-                  :status="statusConfig(item.estado).status"
-                  :label="statusConfig(item.estado).label"
+                  :status="statusFor(item.estado).status"
+                  :label="statusFor(item.estado).label"
                 />
               </td>
-              <td class="px-5 py-4 text-right">
-                <button
-                  type="button"
-                  class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
-                  aria-label="Ver devolución"
-                  @click="openDetail(item)"
-                >
-                  <EyeIcon class="h-5 w-5" />
-                </button>
+              <td class="px-5 py-4">
+                <div class="flex justify-end gap-1">
+                  <button
+                    type="button"
+                    class="rounded-lg p-2 text-gray-400 hover:bg-gray-100"
+                    aria-label="Ver devolución"
+                    @click="openDetail(item)"
+                  >
+                    <EyeIcon class="h-5 w-5" />
+                  </button>
+
+                  <button
+                    v-if="authStore.isAdmin && item.estado === 'PENDIENTE'"
+                    type="button"
+                    class="rounded-lg p-2 text-gray-400 hover:bg-green-50 hover:text-green-600"
+                    aria-label="Aprobar devolución"
+                    @click="requestApprove(item)"
+                  >
+                    <CheckCircleIcon class="h-5 w-5" />
+                  </button>
+
+                  <button
+                    v-if="authStore.isAdmin && item.estado === 'PENDIENTE'"
+                    type="button"
+                    class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                    aria-label="Rechazar devolución"
+                    @click="requestReject(item)"
+                  >
+                    <XCircleIcon class="h-5 w-5" />
+                  </button>
+                </div>
               </td>
             </tr>
 
-            <tr v-if="!filteredReturns.length">
-              <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500">
+            <tr v-if="!filtered.length">
+              <td colspan="6" class="px-6 py-12 text-center text-gray-500">
                 No se encontraron devoluciones.
               </td>
             </tr>
@@ -258,87 +411,127 @@ function rejectReturn(item: Devolucion) {
       </div>
     </div>
 
-    <BaseModal
-      :open="newModalOpen"
-      title="Registrar devolución"
-      max-width="lg"
-      @close="newModalOpen = false"
-    >
+    <BaseModal :open="modalOpen" title="Nueva devolución" max-width="lg" @close="modalOpen = false">
       <form class="space-y-5" @submit.prevent="saveReturn">
-        <div class="grid gap-5 sm:grid-cols-2">
-          <BaseInput
-            v-model="form.ventaFolio"
-            label="Folio de venta"
-            placeholder="Ej. V-0092"
-            required
-          />
+        <BaseSelect
+          :model-value="form.ventaId"
+          label="Venta"
+          :options="ventaOptions"
+          placeholder="Selecciona la venta"
+          required
+          @update:model-value="selectSale"
+        />
 
-          <BaseInput
-            v-model="form.cliente"
-            label="Cliente"
-            placeholder="Nombre del cliente"
-            required
-          />
+        <BaseSelect
+          v-model="form.tipo"
+          label="Tipo de devolución"
+          :options="typeOptions"
+          required
+        />
 
-          <BaseInput
-            v-model="form.producto"
-            label="Producto"
-            placeholder="Ej. Labial Mate"
-            required
-          />
+        <BaseLoader v-if="loadingSale" text="Cargando productos de la venta..." />
 
-          <BaseInput
-            v-model="form.variante"
-            label="Variante"
-            placeholder="Ej. Rosa Nude"
-            required
-          />
-
-          <BaseInput v-model="form.cantidad" type="number" min="1" label="Cantidad" required />
-
+        <div v-else class="grid gap-4 md:grid-cols-[minmax(0,1fr)_140px_auto] md:items-end">
           <BaseSelect
-            v-model="form.tipo"
-            label="Tipo de devolución"
-            :options="typeOptions"
-            required
+            v-model="form.varianteId"
+            label="Producto"
+            :options="variantOptions"
+            :disabled="!form.ventaId || !variantOptions.length"
+            placeholder="Selecciona el producto"
           />
+
+          <BaseInput
+            v-model="form.cantidad"
+            type="number"
+            min="1"
+            :max="selectedSoldVariant?.cantidadVendida"
+            label="Cantidad"
+          />
+
+          <BaseButton type="button" variant="secondary" @click="addReturnLine">
+            <PlusIcon class="h-4 w-4" />
+            Agregar
+          </BaseButton>
         </div>
 
-        <div>
-          <label for="devolucion-motivo" class="mb-2 block text-sm font-medium text-gray-700">
-            Motivo <span class="text-red-500">*</span>
-          </label>
+        <div v-if="selectedLines.length" class="divide-y divide-gray-100 rounded-xl border">
+          <div
+            v-for="line in selectedLines"
+            :key="line.varianteId"
+            class="flex items-center justify-between gap-4 p-4"
+          >
+            <div>
+              <p class="text-sm font-medium text-gray-900">{{ line.label }}</p>
+              <p class="mt-1 text-xs text-gray-500">Cantidad a devolver: {{ line.cantidad }}</p>
+            </div>
 
+            <button
+              type="button"
+              class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500"
+              aria-label="Quitar producto"
+              @click="removeReturnLine(line.varianteId)"
+            >
+              <TrashIcon class="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <p
+          v-if="form.tipo === 'EXTRAORDINARIA'"
+          class="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700"
+        >
+          La autorización quedará registrada con tu usuario.
+        </p>
+
+        <div>
+          <label class="mb-2 block text-sm font-medium text-gray-700">Motivo</label>
           <textarea
-            id="devolucion-motivo"
             v-model="form.motivo"
             rows="4"
             required
             placeholder="Describe el motivo de la devolución"
-            class="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#C56B86] focus:ring-2 focus:ring-[#C56B86]/15"
+            class="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#C56B86] focus:ring-2 focus:ring-[#C56B86]/15"
           />
         </div>
 
-        <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
-          <BaseButton variant="secondary" @click="newModalOpen = false"> Cancelar </BaseButton>
+        <p v-if="formMessage" class="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {{ formMessage }}
+        </p>
 
-          <BaseButton type="submit"> Registrar </BaseButton>
+        <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
+          <BaseButton variant="secondary" @click="modalOpen = false">Cancelar</BaseButton>
+          <BaseButton type="submit" :loading="saving">Registrar</BaseButton>
         </div>
       </form>
     </BaseModal>
 
     <BaseModal
-      :open="detailModalOpen"
+      :open="detailOpen"
       title="Detalle de devolución"
       max-width="lg"
-      @close="detailModalOpen = false"
+      @close="detailOpen = false"
     >
-      <DevolucionDetalle
-        v-if="selectedReturn"
-        :devolucion="selectedReturn"
-        @approve="approveReturn"
-        @reject="rejectReturn"
-      />
+      <DevolucionDetalle v-if="selected" :devolucion="selected" />
     </BaseModal>
+
+    <ConfirmDialog
+      :open="approveOpen"
+      title="Aprobar devolución"
+      description="¿Deseas aprobar esta devolución?"
+      confirm-text="Aprobar"
+      :loading="saving"
+      @confirm="confirmApprove"
+      @cancel="approveOpen = false"
+    />
+
+    <ConfirmDialog
+      :open="rejectOpen"
+      title="Rechazar devolución"
+      description="¿Deseas rechazar esta devolución?"
+      confirm-text="Rechazar"
+      :loading="saving"
+      @confirm="confirmReject"
+      @cancel="rejectOpen = false"
+    />
   </section>
 </template>

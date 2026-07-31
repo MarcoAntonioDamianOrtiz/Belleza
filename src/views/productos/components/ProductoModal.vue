@@ -4,6 +4,7 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import ProductoForm from './ProductoForm.vue'
 import VarianteForm from './VarianteForm.vue'
 
+import type { Categoria } from '@/types/categoria'
 import type { Producto } from '@/types/producto'
 import type { Variante } from '@/types/variante'
 import type { ProductoFormData } from './ProductoForm.vue'
@@ -12,6 +13,7 @@ import type { VarianteFormData } from './VarianteForm.vue'
 interface Props {
   open: boolean
   mode: 'producto' | 'variante'
+  categorias: Categoria[]
   producto?: Producto | null
   variante?: Variante | null
 }
@@ -42,6 +44,7 @@ function getTitle() {
       v-if="mode === 'producto'"
       :key="producto?.id ?? 'new-product'"
       :producto="producto"
+      :categorias="categorias"
       @submit="emit('submitProduct', $event)"
       @cancel="emit('close')"
     />

@@ -1,13 +1,29 @@
-export interface EmpresaConfig {
+export interface Empresa {
+  id: string
   nombre: string
   rfc: string
   direccion: string
   telefono: string
-  correo: string
+  logo: string
+  mensajeTicket: string
   iva: number
   diasDevolucion: number
-  mensajeTicket: string
+  fechaCreacion?: string
+  fechaActualizacion?: string
+}
+
+export interface EmpresaPayload {
+  nombre: string
+  rfc?: string | null
+  direccion: string
+  telefono?: string | null
+  logo?: string | null
+  mensaje_ticket: string
+  iva: number
+  dias_devolucion: number
+}
+
+export interface PrinterSettings {
   nombreImpresora: string
   impresionAutomatica: boolean
-  logoUrl?: string
 }

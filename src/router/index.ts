@@ -1,29 +1,31 @@
 import { createRouter, createWebHistory } from 'vue-router'
+
 import { setupRouterGuards } from './guards'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
 
   routes: [
-    // Autenticación
     {
       path: '/login',
       component: () => import('@/layouts/AuthLayout.vue'),
+      meta: {
+        guestOnly: true,
+      },
       children: [
         {
           path: '',
           name: 'login',
           component: () => import('@/views/auth/LoginView.vue'),
-          meta: {
-            guestOnly: true,
-          },
         },
       ],
     },
-    // Aplicación
     {
       path: '/',
       component: () => import('@/layouts/DashboardLayout.vue'),
+      meta: {
+        requiresAuth: true,
+      },
       children: [
         {
           path: '',
@@ -39,6 +41,11 @@ const router = createRouter({
           path: 'productos',
           name: 'productos',
           component: () => import('@/views/productos/ProductosView.vue'),
+        },
+        {
+          path: 'categorias',
+          name: 'categorias',
+          component: () => import('@/views/categorias/CategoriasView.vue'),
         },
         {
           path: 'inventario',
@@ -71,6 +78,14 @@ const router = createRouter({
           component: () => import('@/views/cajas/CajaView.vue'),
         },
         {
+          path: 'metodos-pago',
+          name: 'metodos-pago',
+          component: () => import('@/views/metodos-pago/MetodosPagoView.vue'),
+          meta: {
+            adminOnly: true,
+          },
+        },
+        {
           path: 'garantias',
           name: 'garantias',
           component: () => import('@/views/garantias/GarantiasView.vue'),
@@ -84,26 +99,36 @@ const router = createRouter({
           path: 'usuarios',
           name: 'usuarios',
           component: () => import('@/views/usuarios/UsuariosView.vue'),
+          meta: {
+            adminOnly: true,
+          },
         },
         {
           path: 'reportes',
           name: 'reportes',
           component: () => import('@/views/reportes/ReportesView.vue'),
+          meta: {
+            adminOnly: true,
+          },
         },
         {
           path: 'bitacora',
           name: 'bitacora',
           component: () => import('@/views/bitacora/BitacoraView.vue'),
+          meta: {
+            adminOnly: true,
+          },
         },
         {
           path: 'configuracion',
           name: 'configuracion',
           component: () => import('@/views/empresa/EmpresaView.vue'),
+          meta: {
+            adminOnly: true,
+          },
         },
       ],
     },
-
-    // Errores
     {
       path: '/403',
       name: 'forbidden',
@@ -118,4 +143,5 @@ const router = createRouter({
 })
 
 setupRouterGuards(router)
+
 export default router

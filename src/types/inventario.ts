@@ -1,12 +1,25 @@
-export type TipoMovimientoInventario = 'entrada' | 'salida' | 'ajuste'
+export type TipoMovimientoInventario = 'ENTRADA' | 'SALIDA' | 'AJUSTE'
 
 export interface MovimientoInventario {
-  id: number
-  fecha: string
-  producto: string
+  id: string
   variante: string
-  sku: string
   tipo: TipoMovimientoInventario
   cantidad: number
-  motivo: string
+  observaciones: string
+  usuario: string
+  fecha: string
+}
+
+export interface MovimientoPayload {
+  variante_id: string
+  cantidad: number
+  observaciones?: string
+}
+
+export interface MovimientoResultado {
+  success: boolean
+  message: string
+  data: {
+    id: string
+  }
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import BaseButton from '@/components/ui/BaseButton.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
+import { formatDate } from '@/utils/formatDate'
 
 import type { Devolucion } from '@/types/devolucion'
 
@@ -10,18 +10,17 @@ interface Props {
 
 defineProps<Props>()
 
-const emit = defineEmits<{
-  approve: [devolucion: Devolucion]
-  reject: [devolucion: Devolucion]
-}>()
-
-function statusConfig(status: Devolucion['estado']) {
-  if (status === 'aprobada') {
+function statusFor(estado: Devolucion['estado']) {
+  if (estado === 'APROBADA') {
     return { status: 'success' as const, label: 'Aprobada' }
   }
 
-  if (status === 'rechazada') {
+  if (estado === 'RECHAZADA') {
     return { status: 'danger' as const, label: 'Rechazada' }
+  }
+
+  if (estado === 'FINALIZADA') {
+    return { status: 'info' as const, label: 'Finalizada' }
   }
 
   return { status: 'warning' as const, label: 'Pendiente' }
@@ -29,76 +28,61 @@ function statusConfig(status: Devolucion['estado']) {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+  <div class="space-y-5">
+    <dl class="grid gap-4 sm:grid-cols-2">
       <div>
-        <p class="text-sm text-gray-500">Devolución</p>
-        <h3 class="mt-1 text-xl font-semibold text-gray-900">
-          {{ devolucion.folio }}
-        </h3>
-      </div>
-
-      <StatusChip
-        :status="statusConfig(devolucion.estado).status"
-        :label="statusConfig(devolucion.estado).label"
-      />
-    </div>
-
-    <dl class="grid gap-4 rounded-2xl bg-gray-50 p-5 sm:grid-cols-2">
-      <div>
-        <dt class="text-xs font-medium uppercase text-gray-400">Venta</dt>
-        <dd class="mt-1 text-sm font-medium text-gray-900">{{ devolucion.ventaFolio }}</dd>
-      </div>
-
-      <div>
-        <dt class="text-xs font-medium uppercase text-gray-400">Fecha</dt>
-        <dd class="mt-1 text-sm font-medium text-gray-900">{{ devolucion.fechaSolicitud }}</dd>
-      </div>
-
-      <div>
-        <dt class="text-xs font-medium uppercase text-gray-400">Cliente</dt>
-        <dd class="mt-1 text-sm font-medium text-gray-900">{{ devolucion.cliente }}</dd>
-      </div>
-
-      <div>
-        <dt class="text-xs font-medium uppercase text-gray-400">Tipo</dt>
-        <dd class="mt-1 text-sm font-medium capitalize text-gray-900">{{ devolucion.tipo }}</dd>
-      </div>
-
-      <div>
-        <dt class="text-xs font-medium uppercase text-gray-400">Producto</dt>
-        <dd class="mt-1 text-sm font-medium text-gray-900">
-          {{ devolucion.producto }} - {{ devolucion.variante }}
+        <dt class="text-xs uppercase text-gray-400">Venta</dt>
+        <dd class="mt-1 font-medium text-gray-900">
+          {{ devolucion.ventaFolio }}
         </dd>
       </div>
 
       <div>
-        <dt class="text-xs font-medium uppercase text-gray-400">Cantidad</dt>
-        <dd class="mt-1 text-sm font-medium text-gray-900">{{ devolucion.cantidad }}</dd>
+        <dt class="text-xs uppercase text-gray-400">Fecha</dt>
+        <dd class="mt-1 text-gray-700">
+          {{ formatDate(devolucion.fecha) }}
+        </dd>
+      </div>
+
+      <div>
+        <dt class="text-xs uppercase text-gray-400">Tipo</dt>
+        <dd class="mt-1 text-gray-700">{{ devolucion.tipo }}</dd>
+      </div>
+
+      <div>
+        <dt class="text-xs uppercase text-gray-400">Estado</dt>
+        <dd class="mt-1">
+          <StatusChip
+            :status="statusFor(devolucion.estado).status"
+            :label="statusFor(devolucion.estado).label"
+          />
+        </dd>
+      </div>
+
+      <div class="sm:col-span-2">
+        <dt class="text-xs uppercase text-gray-400">Motivo</dt>
+        <dd class="mt-1 text-gray-700">{{ devolucion.motivo }}</dd>
       </div>
     </dl>
 
     <div>
-      <h4 class="text-sm font-semibold text-gray-900">Motivo</h4>
-      <p class="mt-2 rounded-xl border border-gray-100 p-4 text-sm leading-6 text-gray-600">
-        {{ devolucion.motivo }}
-      </p>
-    </div>
+      <h3 class="font-medium text-gray-900">Productos</h3>
+      <div class="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-100">
+        <div
+          v-for="(item, index) in devolucion.productos"
+          :key="`${item.varianteId}-${index}`"
+          class="flex items-center justify-between gap-4 p-4 text-sm"
+        >
+          <span class="text-gray-700"> {{ item.producto }} - {{ item.variante }} </span>
+          <span class="font-medium text-gray-900">
+            {{ item.cantidad }}
+          </span>
+        </div>
 
-    <div v-if="devolucion.resolucion">
-      <h4 class="text-sm font-semibold text-gray-900">Resolución</h4>
-      <p class="mt-2 rounded-xl border border-gray-100 p-4 text-sm leading-6 text-gray-600">
-        {{ devolucion.resolucion }}
-      </p>
-    </div>
-
-    <div
-      v-if="devolucion.estado === 'pendiente'"
-      class="flex justify-end gap-3 border-t border-gray-100 pt-5"
-    >
-      <BaseButton variant="danger" @click="emit('reject', devolucion)"> Rechazar </BaseButton>
-
-      <BaseButton @click="emit('approve', devolucion)"> Aprobar </BaseButton>
+        <p v-if="!devolucion.productos.length" class="p-4 text-sm text-gray-500">
+          No hay productos registrados.
+        </p>
+      </div>
     </div>
   </div>
 </template>

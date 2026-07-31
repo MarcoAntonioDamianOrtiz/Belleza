@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
+import axios from 'axios'
 import {
   ArrowRightIcon,
   MagnifyingGlassIcon,
@@ -9,10 +10,13 @@ import {
 } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseModal from '@/components/ui/BaseModal.vue'
 
 import HistorialVentas from './components/HistorialVentas.vue'
 import MetodoPago from './components/MetodoPago.vue'
@@ -20,208 +24,348 @@ import ResumenVenta from './components/ResumenVenta.vue'
 import TicketPreview from './components/TicketPreview.vue'
 import VentaCarrito from './components/VentaCarrito.vue'
 
+import { getCajasActivas } from '@/api/cajas'
+import { getEmpresa } from '@/api/empresa'
+import { getMetodosPagoActivos } from '@/api/metodosPago'
+import { getProductos } from '@/api/productos'
+import { getVarianteByCode, getVariantes } from '@/api/variantes'
+import {
+  cancelVenta,
+  createVenta,
+  getTicketVenta,
+  getVenta,
+  getVentas,
+  reprintTicketVenta,
+} from '@/api/ventas'
+import { useAuthStore } from '@/stores/auth'
 import { useCarritoStore } from '@/stores/carrito'
-import { createMockId, normalizeSearch } from '@/utils/helpers'
 import { formatCurrency } from '@/utils/formatCurrency'
+import { getFriendlyError } from '@/utils/apiError'
+import { showError, showSuccess } from '@/utils/notifications'
 
-import type {
-  MetodoPago as MetodoPagoType,
-  TipoPrecio,
-  VarianteVenta,
-  VentaRealizada,
-} from '@/types/venta'
+import type { Caja } from '@/types/caja'
+import type { Empresa } from '@/types/empresa'
+import type { MetodoPagoCatalogo } from '@/types/metodoPago'
+import type { TicketEmpresa, VarianteVenta, VentaDetalle, VentaResumen } from '@/types/venta'
 
 type PosTab = 'venta' | 'historial'
+
+const authStore = useAuthStore()
+const carrito = useCarritoStore()
+
+const { items, descuento, subtotal, descuentoAplicado, iva, total, totalArticulos } =
+  storeToRefs(carrito)
 
 const tab = ref<PosTab>('venta')
 const search = ref('')
 const scannerCode = ref('')
 const scannerMessage = ref('')
+const loading = ref(false)
+const saving = ref(false)
+
 const paymentOpen = ref(false)
 const ticketOpen = ref(false)
-const selectedSale = ref<VentaRealizada | null>(null)
-const paymentMethod = ref<MetodoPagoType>('efectivo')
+const cancelOpen = ref(false)
+
+const selectedSale = ref<VentaDetalle | null>(null)
+const ticketEmpresa = ref<TicketEmpresa | null>(null)
+const saleToCancel = ref<VentaResumen | null>(null)
+
+const paymentMethodId = ref('')
+const selectedCajaId = ref('')
 const received = ref(0)
 const paymentError = ref('')
 
-const carrito = useCarritoStore()
-const {
-  items,
-  tipoPrecio,
-  descuentoPorcentaje,
-  subtotal,
-  descuentoMonto,
-  iva,
-  total,
-  totalArticulos,
-} = storeToRefs(carrito)
+const variantes = ref<VarianteVenta[]>([])
+const ventas = ref<VentaResumen[]>([])
+const metodos = ref<MetodoPagoCatalogo[]>([])
+const cajas = ref<Caja[]>([])
+const empresa = ref<Empresa | null>(null)
 
-const variantes = ref<VarianteVenta[]>([
-  {
-    id: 1,
-    producto: 'Labial Mate',
-    variante: 'Rojo Cereza',
-    sku: 'LAB-MAT-ROJ',
-    codigoBarras: '7501234567890',
-    stock: 24,
-    precioMenudeo: 85,
-    precioMayoreo: 70,
-  },
-  {
-    id: 2,
-    producto: 'Labial Mate',
-    variante: 'Rosa Nude',
-    sku: 'LAB-MAT-NUD',
-    codigoBarras: '7501234567891',
-    stock: 4,
-    precioMenudeo: 85,
-    precioMayoreo: 70,
-  },
-  {
-    id: 3,
-    producto: 'Labial Mate',
-    variante: 'Ciruela',
-    sku: 'LAB-MAT-CIR',
-    codigoBarras: '7501234567892',
-    stock: 0,
-    precioMenudeo: 85,
-    precioMayoreo: 70,
-  },
-  {
-    id: 4,
-    producto: 'Crema Facial',
-    variante: 'Hidratante 250 ml',
-    sku: 'CRE-HID-250',
-    codigoBarras: '7501234567900',
-    stock: 12,
-    precioMenudeo: 180,
-    precioMayoreo: 155,
-  },
-])
+const openBoxes = computed(() =>
+  cajas.value.filter((item) => item.activa && item.estado === 'ABIERTA'),
+)
 
-const ventas = ref<VentaRealizada[]>([
-  {
-    id: 1,
-    folio: 'V-0001',
-    fecha: '30/07/2026 09:45',
-    usuario: 'Administrador',
-    tipoPrecio: 'menudeo',
-    metodoPago: 'efectivo',
-    items: [
-      {
-        variante: variantes.value[0]!,
-        cantidad: 2,
-      },
-    ],
-    subtotal: 170,
-    descuento: 0,
-    iva: 27.2,
-    total: 197.2,
-    efectivoRecibido: 200,
-    cambio: 2.8,
-  },
-])
+const cajaOptions = computed(() =>
+  openBoxes.value.map((item) => ({
+    label: item.nombre,
+    value: item.id,
+  })),
+)
+
+const selectedPaymentMethod = computed(() =>
+  metodos.value.find((item) => item.id === paymentMethodId.value),
+)
+
+const isCash = computed(() =>
+  selectedPaymentMethod.value?.nombre.toLowerCase().includes('efectivo'),
+)
 
 const filteredVariants = computed(() => {
-  const term = normalizeSearch(search.value)
+  const term = search.value.trim().toLowerCase()
 
   if (!term) return variantes.value
 
   return variantes.value.filter((item) =>
     [item.producto, item.variante, item.sku, item.codigoBarras].some((value) =>
-      normalizeSearch(value).includes(term),
+      value.toLowerCase().includes(term),
     ),
   )
 })
 
-function displayPrice(variante: VarianteVenta) {
-  return tipoPrecio.value === 'mayoreo' ? variante.precioMayoreo : variante.precioMenudeo
+async function loadData() {
+  loading.value = true
+
+  try {
+    const [products, variants, paymentMethods, boxes, sales] = await Promise.all([
+      getProductos(),
+      getVariantes(),
+      getMetodosPagoActivos(),
+      getCajasActivas(),
+      getVentas(),
+    ])
+
+    const productMap = new Map(products.map((item) => [item.id, item.nombre]))
+
+    variantes.value = variants.map((item) => ({
+      id: item.id,
+      producto: productMap.get(item.productoId) ?? 'Producto',
+      variante: item.nombre,
+      sku: item.sku,
+      codigoBarras: item.codigoBarras,
+      stock: item.stock,
+      precioMenudeo: item.precioMenudeo,
+      precioMayoreo: item.precioMayoreo,
+    }))
+
+    metodos.value = paymentMethods
+    cajas.value = boxes
+    ventas.value = sales
+
+    if (!paymentMethodId.value && paymentMethods[0]) {
+      paymentMethodId.value = paymentMethods[0].id
+    }
+
+    const firstOpenBox = boxes.find((item) => item.estado === 'ABIERTA')
+
+    if (!selectedCajaId.value && firstOpenBox) {
+      selectedCajaId.value = firstOpenBox.id
+    }
+
+    try {
+      empresa.value = await getEmpresa()
+      carrito.ivaPorcentaje = empresa.value.iva
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        empresa.value = null
+        carrito.ivaPorcentaje = 0
+      } else {
+        throw error
+      }
+    }
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible cargar la información de ventas.'))
+  } finally {
+    loading.value = false
+  }
 }
 
 function addVariant(variante: VarianteVenta) {
   carrito.agregar(variante)
 }
 
-function scanCode() {
+async function scanCode() {
   const code = scannerCode.value.trim()
 
   if (!code) return
 
-  // Cuando el backend esté disponible, este punto llamará:
-  // GET /api/variantes/codigo/{codigo}/
-  const variante = variantes.value.find((item) => item.codigoBarras === code)
+  scannerMessage.value = ''
 
-  if (!variante) {
-    scannerMessage.value = 'No se encontró una variante con ese código.'
-    return
+  try {
+    const item = await getVarianteByCode(code)
+    const product = await getProductos()
+    const productName =
+      product.find((current) => current.id === item.productoId)?.nombre ?? 'Producto'
+
+    const variante: VarianteVenta = {
+      id: item.id,
+      producto: productName,
+      variante: item.nombre,
+      sku: item.sku,
+      codigoBarras: item.codigoBarras,
+      stock: item.stock,
+      precioMenudeo: item.precioMenudeo,
+      precioMayoreo: item.precioMayoreo,
+    }
+
+    if (variante.stock <= 0) {
+      scannerMessage.value = 'La variante está agotada.'
+      return
+    }
+
+    carrito.agregar(variante)
+    scannerCode.value = ''
+    scannerMessage.value = `${variante.producto} - ${variante.variante} agregado al carrito.`
+  } catch (error) {
+    scannerMessage.value = getFriendlyError(error, 'No se encontró una variante con ese código.')
   }
-
-  if (variante.stock <= 0) {
-    scannerMessage.value = 'La variante está agotada.'
-    return
-  }
-
-  carrito.agregar(variante)
-  scannerCode.value = ''
-  scannerMessage.value = `${variante.producto} - ${variante.variante} agregado al carrito.`
-}
-
-function setPriceType(value: TipoPrecio) {
-  tipoPrecio.value = value
 }
 
 function setDiscount(value: number) {
-  descuentoPorcentaje.value = Math.min(100, Math.max(0, value || 0))
+  descuento.value = Math.max(0, Number(value) || 0)
 }
 
 function openPayment() {
+  paymentError.value = ''
+
   if (!items.value.length) return
 
-  paymentMethod.value = 'efectivo'
+  if (!empresa.value) {
+    paymentError.value = 'Primero registra la información del negocio en Configuración.'
+    paymentOpen.value = true
+    return
+  }
+
+  if (!openBoxes.value.length) {
+    paymentError.value = 'Primero abre una caja para registrar la venta.'
+    paymentOpen.value = true
+    return
+  }
+
+  if (!metodos.value.length) {
+    paymentError.value = 'No hay métodos de pago disponibles.'
+    paymentOpen.value = true
+    return
+  }
+
+  paymentMethodId.value ||= metodos.value[0]?.id ?? ''
+  selectedCajaId.value ||= openBoxes.value[0]?.id ?? ''
   received.value = 0
-  paymentError.value = ''
   paymentOpen.value = true
 }
 
-function confirmPayment() {
+async function loadTicket(saleId: string, mode: 'generate' | 'reprint' | 'detail' = 'generate') {
+  if (mode === 'detail') {
+    selectedSale.value = await getVenta(saleId)
+    ticketEmpresa.value = empresa.value
+    return
+  }
+
+  try {
+    const result =
+      mode === 'reprint' ? await reprintTicketVenta(saleId) : await getTicketVenta(saleId)
+
+    selectedSale.value = result.venta
+    ticketEmpresa.value = result.empresa ?? empresa.value
+  } catch (error) {
+    if (
+      axios.isAxiosError(error) &&
+      (error.response?.status === 404 || error.response?.status === 405)
+    ) {
+      selectedSale.value = await getVenta(saleId)
+      ticketEmpresa.value = empresa.value
+      return
+    }
+
+    throw error
+  }
+}
+
+async function confirmPayment() {
   paymentError.value = ''
 
-  if (paymentMethod.value === 'efectivo' && received.value < total.value) {
+  if (!selectedCajaId.value) {
+    paymentError.value = 'Selecciona una caja abierta.'
+    return
+  }
+
+  if (!paymentMethodId.value) {
+    paymentError.value = 'Selecciona un método de pago.'
+    return
+  }
+
+  if (isCash.value && received.value < total.value) {
     paymentError.value = 'El efectivo recibido es menor que el total.'
     return
   }
 
-  const sale: VentaRealizada = {
-    id: createMockId(),
-    folio: `V-${String(ventas.value.length + 1).padStart(4, '0')}`,
-    fecha: new Date().toLocaleString('es-MX'),
-    usuario: 'Administrador',
-    tipoPrecio: tipoPrecio.value,
-    metodoPago: paymentMethod.value,
-    items: items.value.map((item) => ({
-      variante: { ...item.variante },
-      cantidad: item.cantidad,
-    })),
-    subtotal: subtotal.value,
-    descuento: descuentoMonto.value,
-    iva: iva.value,
-    total: total.value,
-    efectivoRecibido: paymentMethod.value === 'efectivo' ? received.value : undefined,
-    cambio:
-      paymentMethod.value === 'efectivo' ? Math.max(0, received.value - total.value) : undefined,
+  saving.value = true
+
+  try {
+    const result = await createVenta({
+      caja_id: selectedCajaId.value,
+      metodo_pago_id: paymentMethodId.value,
+      descuento: descuentoAplicado.value,
+      productos: items.value.map((item) => ({
+        variante_id: item.variante.id,
+        cantidad: item.cantidad,
+      })),
+    })
+
+    await loadTicket(result.venta_id)
+    paymentOpen.value = false
+    ticketOpen.value = true
+    carrito.vaciar()
+
+    await showSuccess(result.message)
+    await loadData()
+  } catch (error) {
+    paymentError.value = getFriendlyError(error, 'No fue posible registrar la venta.')
+  } finally {
+    saving.value = false
   }
-
-  ventas.value.unshift(sale)
-  selectedSale.value = sale
-  paymentOpen.value = false
-  ticketOpen.value = true
-  carrito.vaciar()
 }
 
-function showTicket(venta: VentaRealizada) {
-  selectedSale.value = venta
-  ticketOpen.value = true
+async function showTicket(venta: VentaResumen) {
+  loading.value = true
+
+  try {
+    await loadTicket(venta.id, 'detail')
+    ticketOpen.value = true
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible cargar la venta.'))
+  } finally {
+    loading.value = false
+  }
 }
+
+async function reprintTicket(venta: VentaResumen) {
+  loading.value = true
+
+  try {
+    await loadTicket(venta.id, 'reprint')
+    ticketOpen.value = true
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible preparar el ticket.'))
+  } finally {
+    loading.value = false
+  }
+}
+
+function requestCancel(venta: VentaResumen) {
+  saleToCancel.value = venta
+  cancelOpen.value = true
+}
+
+async function confirmCancel() {
+  if (!saleToCancel.value) return
+
+  saving.value = true
+
+  try {
+    const message = await cancelVenta(saleToCancel.value.id)
+    cancelOpen.value = false
+    await showSuccess(message)
+    await loadData()
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible cancelar la venta.'))
+  } finally {
+    saving.value = false
+    saleToCancel.value = null
+  }
+}
+
+onMounted(loadData)
 </script>
 
 <template>
@@ -259,7 +403,9 @@ function showTicket(venta: VentaRealizada) {
       </button>
     </div>
 
-    <div v-if="tab === 'venta'" class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+    <BaseLoader v-if="loading" text="Cargando ventas..." />
+
+    <div v-else-if="tab === 'venta'" class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div class="space-y-5">
         <div class="rounded-2xl border border-[#ECECEC] bg-white p-5">
           <div class="flex items-center gap-2">
@@ -274,7 +420,7 @@ function showTicket(venta: VentaRealizada) {
               inputmode="numeric"
               autocomplete="off"
               placeholder="Escanea o escribe el código..."
-              class="min-w-0 flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition focus:border-[#C56B86] focus:ring-2 focus:ring-[#C56B86]/15"
+              class="min-w-0 flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-[#C56B86] focus:ring-2 focus:ring-[#C56B86]/15"
             />
 
             <BaseButton type="submit">
@@ -323,10 +469,12 @@ function showTicket(venta: VentaRealizada) {
                   <td class="px-4 py-4 font-medium text-gray-900">
                     {{ variante.producto }}
                   </td>
-                  <td class="px-4 py-4 text-gray-600">{{ variante.variante }}</td>
+                  <td class="px-4 py-4 text-gray-600">
+                    {{ variante.variante }}
+                  </td>
                   <td class="px-4 py-4 text-gray-600">{{ variante.sku }}</td>
                   <td class="px-4 py-4 font-semibold text-gray-900">
-                    {{ formatCurrency(displayPrice(variante)) }}
+                    {{ formatCurrency(variante.precioMenudeo) }}
                   </td>
                   <td class="px-4 py-4">
                     <StatusChip
@@ -346,6 +494,12 @@ function showTicket(venta: VentaRealizada) {
                     </BaseButton>
                   </td>
                 </tr>
+
+                <tr v-if="!filteredVariants.length">
+                  <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+                    No se encontraron variantes.
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -355,7 +509,6 @@ function showTicket(venta: VentaRealizada) {
       <aside class="space-y-5">
         <VentaCarrito
           :items="items"
-          :tipo-precio="tipoPrecio"
           @increment="carrito.incrementar"
           @decrement="carrito.disminuir"
           @remove="carrito.eliminar"
@@ -363,14 +516,12 @@ function showTicket(venta: VentaRealizada) {
         />
 
         <ResumenVenta
-          :tipo-precio="tipoPrecio"
-          :descuento="descuentoPorcentaje"
+          :descuento="descuento"
           :subtotal="subtotal"
-          :descuento-monto="descuentoMonto"
+          :descuento-aplicado="descuentoAplicado"
           :iva="iva"
           :total="total"
           :total-articulos="totalArticulos"
-          @update:tipo-precio="setPriceType"
           @update:descuento="setDiscount"
         >
           <BaseButton class="mt-5 w-full" :disabled="!items.length" @click="openPayment">
@@ -381,19 +532,40 @@ function showTicket(venta: VentaRealizada) {
       </aside>
     </div>
 
-    <HistorialVentas v-else :ventas="ventas" @view="showTicket" @reprint="showTicket" />
+    <HistorialVentas
+      v-else-if="!loading"
+      :ventas="ventas"
+      :can-cancel="authStore.isAdmin"
+      @view="showTicket"
+      @reprint="reprintTicket"
+      @cancel="requestCancel"
+    />
 
     <BaseModal :open="paymentOpen" title="Cobrar venta" max-width="lg" @close="paymentOpen = false">
-      <MetodoPago v-model="paymentMethod" v-model:recibido="received" :total="total" />
+      <div class="space-y-5">
+        <BaseSelect
+          v-model="selectedCajaId"
+          label="Caja"
+          :options="cajaOptions"
+          placeholder="Selecciona una caja abierta"
+          required
+        />
 
-      <p v-if="paymentError" class="mt-4 text-sm text-red-500">
+        <MetodoPago
+          v-model="paymentMethodId"
+          v-model:recibido="received"
+          :metodos="metodos"
+          :total="total"
+        />
+      </div>
+
+      <p v-if="paymentError" class="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
         {{ paymentError }}
       </p>
 
       <div class="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-5">
         <BaseButton variant="secondary" @click="paymentOpen = false"> Cancelar </BaseButton>
-
-        <BaseButton @click="confirmPayment"> Confirmar venta </BaseButton>
+        <BaseButton :loading="saving" @click="confirmPayment"> Confirmar venta </BaseButton>
       </div>
     </BaseModal>
 
@@ -403,7 +575,21 @@ function showTicket(venta: VentaRealizada) {
       max-width="md"
       @close="ticketOpen = false"
     >
-      <TicketPreview v-if="selectedSale" :venta="selectedSale" />
+      <TicketPreview
+        v-if="selectedSale"
+        :venta="selectedSale"
+        :empresa="ticketEmpresa ?? empresa"
+      />
     </BaseModal>
+
+    <ConfirmDialog
+      :open="cancelOpen"
+      title="Cancelar venta"
+      :description="`¿Deseas cancelar la venta ${saleToCancel?.folio ?? ''}? El stock será reintegrado.`"
+      confirm-text="Cancelar venta"
+      :loading="saving"
+      @confirm="confirmCancel"
+      @cancel="cancelOpen = false"
+    />
   </section>
 </template>

@@ -1,11 +1,11 @@
-export interface ReporteResumen {
-  ventas: number
-  ingresos: number
-  unidadesVendidas: number
-  ticketPromedio: number
-}
+export type ReporteClave =
+  | 'ventas'
+  | 'inventario'
+  | 'stock-bajo'
+  | 'cortes'
+  | 'productos'
+  | 'devoluciones'
+  | 'garantias'
+  | 'movimientos'
 
-export interface SerieReporte {
-  etiqueta: string
-  valor: number
-}
+export type ReporteFila = Record<string, unknown>

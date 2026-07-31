@@ -1,36 +1,97 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
+import { getAuthenticatedUser, login, logout } from '@/api/auth'
+
+import {
+  clearAuthSession,
+  getAccessToken,
+  getRefreshToken,
+  getStoredUser,
+  saveAuthSession,
+  updateStoredUser,
+} from '@/utils/authStorage'
+
+import type { AuthUser, LoginPayload } from '@/types/auth'
+
 export const useAuthStore = defineStore('auth', () => {
-  const accessToken = ref<string | null>(localStorage.getItem('access_token'))
+  const user = ref<AuthUser | null>(getStoredUser())
+  const accessToken = ref<string | null>(getAccessToken())
+  const loading = ref(false)
+  const initialized = ref(false)
 
-  const refreshToken = ref<string | null>(localStorage.getItem('refresh_token'))
+  const isAuthenticated = computed(() => Boolean(accessToken.value))
+  const isAdmin = computed(() => user.value?.rol === 1)
 
-  const isAuthenticated = computed(() => {
-    return Boolean(accessToken.value)
-  })
+  async function signIn(payload: LoginPayload, remember = false) {
+    loading.value = true
 
-  function setTokens(access: string, refresh: string) {
-    accessToken.value = access
-    refreshToken.value = refresh
+    try {
+      const response = await login(payload)
 
-    localStorage.setItem('access_token', access)
-    localStorage.setItem('refresh_token', refresh)
+      user.value = response.data.usuario
+      accessToken.value = response.data.access
+
+      saveAuthSession(response.data.access, response.data.refresh, response.data.usuario, remember)
+
+      return response
+    } finally {
+      loading.value = false
+    }
   }
 
-  function clearSession() {
-    accessToken.value = null
-    refreshToken.value = null
+  async function loadUser() {
+    const response = await getAuthenticatedUser()
 
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
+    user.value = response.data
+    updateStoredUser(response.data)
+
+    return response.data
+  }
+
+  async function initializeSession() {
+    if (initialized.value) return
+
+    try {
+      accessToken.value = getAccessToken()
+
+      if (accessToken.value) {
+        await loadUser()
+      }
+    } catch {
+      clearAuthSession()
+      accessToken.value = null
+      user.value = null
+    } finally {
+      initialized.value = true
+    }
+  }
+
+  async function signOut() {
+    const refresh = getRefreshToken()
+
+    try {
+      if (refresh) {
+        await logout(refresh)
+      }
+    } finally {
+      clearAuthSession()
+      accessToken.value = null
+      user.value = null
+      initialized.value = true
+    }
   }
 
   return {
+    user,
     accessToken,
-    refreshToken,
+    loading,
+    initialized,
     isAuthenticated,
-    setTokens,
-    clearSession,
+    isAdmin,
+    signIn,
+    loadUser,
+    initializeSession,
+    signOut,
   }
 })

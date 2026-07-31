@@ -14,11 +14,6 @@ const props = withDefaults(defineProps<Props>(), {
   variante: null,
 })
 
-const emit = defineEmits<{
-  submit: [data: VarianteFormData]
-  cancel: []
-}>()
-
 export interface VarianteFormData {
   nombre: string
   sku: string
@@ -27,10 +22,28 @@ export interface VarianteFormData {
   precioMenudeo: number
   precioMayoreo: number
   stock: number
+  stockMinimo: number
   garantiaMeses: number | null
 }
 
-const form = reactive({
+const emit = defineEmits<{
+  submit: [data: VarianteFormData]
+  cancel: []
+}>()
+
+interface VarianteFormState {
+  nombre: string
+  sku: string
+  codigoBarras: string
+  costo: number
+  precioMenudeo: number
+  precioMayoreo: number
+  stock: number
+  stockMinimo: number
+  garantiaMeses: number | null | ''
+}
+
+const form = reactive<VarianteFormState>({
   nombre: props.variante?.nombre ?? '',
   sku: props.variante?.sku ?? '',
   codigoBarras: props.variante?.codigoBarras ?? '',
@@ -38,6 +51,7 @@ const form = reactive({
   precioMenudeo: props.variante?.precioMenudeo ?? 0,
   precioMayoreo: props.variante?.precioMayoreo ?? 0,
   stock: props.variante?.stock ?? 0,
+  stockMinimo: props.variante?.stockMinimo ?? 0,
   garantiaMeses: props.variante?.garantiaMeses ?? null,
 })
 
@@ -46,7 +60,18 @@ function submitForm() {
     return
   }
 
-  emit('submit', { ...form })
+  emit('submit', {
+    nombre: form.nombre.trim(),
+    sku: form.sku.trim(),
+    codigoBarras: form.codigoBarras.trim(),
+    costo: Number(form.costo),
+    precioMenudeo: Number(form.precioMenudeo),
+    precioMayoreo: Number(form.precioMayoreo),
+    stock: Number(form.stock),
+    stockMinimo: Number(form.stockMinimo),
+    garantiaMeses:
+      form.garantiaMeses === null || form.garantiaMeses === '' ? null : Number(form.garantiaMeses),
+  })
 }
 </script>
 
@@ -64,25 +89,40 @@ function submitForm() {
         required
       />
 
-      <BaseInput v-model="form.costo" label="Costo" type="number" required />
+      <BaseInput v-model="form.costo" label="Costo" type="number" min="0" step="0.01" required />
 
-      <BaseInput v-model="form.precioMenudeo" label="Precio menudeo" type="number" required />
+      <BaseInput
+        v-model="form.precioMenudeo"
+        label="Precio menudeo"
+        type="number"
+        min="0"
+        step="0.01"
+        required
+      />
 
-      <BaseInput v-model="form.precioMayoreo" label="Precio mayoreo" type="number" required />
+      <BaseInput
+        v-model="form.precioMayoreo"
+        label="Precio mayoreo"
+        type="number"
+        min="0"
+        step="0.01"
+        required
+      />
 
-      <BaseInput v-model="form.stock" label="Stock" type="number" required />
+      <BaseInput v-model="form.stock" label="Stock inicial" type="number" min="0" required />
+
+      <BaseInput v-model="form.stockMinimo" label="Stock mínimo" type="number" min="0" required />
 
       <BaseInput
         v-model="form.garantiaMeses"
         label="Garantía (meses)"
         type="number"
+        min="0"
         placeholder="Sin garantía"
       />
     </div>
 
-    <p class="text-xs text-gray-500">
-      Si el producto no cuenta con garantía, deja el campo de garantía vacío.
-    </p>
+    <p class="text-xs text-gray-500">Si no cuenta con garantía, deja el campo vacío.</p>
 
     <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
       <BaseButton variant="secondary" @click="emit('cancel')"> Cancelar </BaseButton>

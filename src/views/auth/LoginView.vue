@@ -1,30 +1,54 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import axios from 'axios'
+import { useRoute, useRouter } from 'vue-router'
 import { LockClosedIcon, UserIcon } from '@heroicons/vue/24/outline'
 
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 
+import { useAuthStore } from '@/stores/auth'
+import { getFriendlyError } from '@/utils/apiError'
+
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+
 const usuario = ref('')
 const password = ref('')
 const remember = ref(false)
-const loading = ref(false)
+const errorMessage = ref('')
 
 async function handleLogin() {
-  if (!usuario.value || !password.value) {
+  errorMessage.value = ''
+
+  if (!usuario.value.trim() || !password.value) {
+    errorMessage.value = 'Ingresa tu usuario y contraseña.'
     return
   }
 
-  loading.value = true
-
   try {
-    // Aquí conectaremos auth.ts cuando el backend esté disponible.
-    console.log({
-      usuario: usuario.value,
-      remember: remember.value,
-    })
-  } finally {
-    loading.value = false
+    await authStore.signIn(
+      {
+        usuario: usuario.value.trim(),
+        password: password.value,
+      },
+      remember.value,
+    )
+
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+
+    await router.replace(redirect)
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      errorMessage.value = 'Usuario o contraseña incorrectos.'
+      return
+    }
+
+    errorMessage.value = getFriendlyError(
+      error,
+      'No fue posible iniciar sesión. Intenta nuevamente.',
+    )
   }
 }
 </script>
@@ -46,7 +70,13 @@ async function handleLogin() {
     <div class="rounded-2xl border border-[#ECECEC] bg-white p-8 shadow-sm">
       <form class="space-y-5" @submit.prevent="handleLogin">
         <div class="relative">
-          <BaseInput v-model="usuario" label="Usuario" placeholder="Ingresa tu usuario" required />
+          <BaseInput
+            v-model="usuario"
+            label="Usuario"
+            placeholder="Ingresa tu usuario"
+            autocomplete="username"
+            required
+          />
 
           <UserIcon class="pointer-events-none absolute right-4 bottom-3 h-5 w-5 text-gray-400" />
         </div>
@@ -57,6 +87,7 @@ async function handleLogin() {
             label="Contraseña"
             type="password"
             placeholder="Ingresa tu contraseña"
+            autocomplete="current-password"
             required
           />
 
@@ -65,19 +96,19 @@ async function handleLogin() {
           />
         </div>
 
-        <div class="flex items-center justify-between gap-4">
-          <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
-            <input v-model="remember" type="checkbox" class="h-4 w-4 accent-[#C56B86]" />
+        <p v-if="errorMessage" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+          {{ errorMessage }}
+        </p>
 
-            Recordarme
-          </label>
+        <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+          <input v-model="remember" type="checkbox" class="h-4 w-4 accent-[#C56B86]" />
 
-          <button type="button" class="text-sm font-medium text-[#C56B86] hover:text-[#B55F79]">
-            ¿Olvidaste tu contraseña?
-          </button>
-        </div>
+          Recordarme
+        </label>
 
-        <BaseButton type="submit" :loading="loading" class="w-full"> Iniciar sesión </BaseButton>
+        <BaseButton type="submit" :loading="authStore.loading" class="w-full">
+          Iniciar sesión
+        </BaseButton>
       </form>
     </div>
 

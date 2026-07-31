@@ -1,31 +1,36 @@
 <script setup lang="ts">
-import { EyeIcon, PrinterIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon, PrinterIcon, XCircleIcon } from '@heroicons/vue/24/outline'
 
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 import { formatCurrency } from '@/utils/formatCurrency'
+import { formatDate } from '@/utils/formatDate'
 
-import type { VentaRealizada } from '@/types/venta'
+import type { VentaResumen } from '@/types/venta'
 
 interface Props {
-  ventas: VentaRealizada[]
+  ventas: VentaResumen[]
+  canCancel: boolean
 }
 
 defineProps<Props>()
 
 const emit = defineEmits<{
-  view: [venta: VentaRealizada]
-  reprint: [venta: VentaRealizada]
+  view: [venta: VentaResumen]
+  reprint: [venta: VentaResumen]
+  cancel: [venta: VentaResumen]
 }>()
 
-function paymentLabel(value: VentaRealizada['metodoPago']) {
-  const labels = {
-    efectivo: 'Efectivo',
-    tarjeta: 'Tarjeta',
-    transferencia: 'Transferencia',
+function statusFor(estado: VentaResumen['estado']) {
+  if (estado === 'COMPLETADA') {
+    return { status: 'success' as const, label: 'Completada' }
   }
 
-  return labels[value]
+  if (estado === 'CANCELADA') {
+    return { status: 'danger' as const, label: 'Cancelada' }
+  }
+
+  return { status: 'warning' as const, label: 'Devuelta' }
 }
 </script>
 
@@ -37,8 +42,7 @@ function paymentLabel(value: VentaRealizada['metodoPago']) {
           <tr class="text-xs font-semibold uppercase text-gray-500">
             <th class="px-5 py-4">Folio</th>
             <th class="px-5 py-4">Fecha</th>
-            <th class="px-5 py-4">Artículos</th>
-            <th class="px-5 py-4">Pago</th>
+            <th class="px-5 py-4">Usuario</th>
             <th class="px-5 py-4">Total</th>
             <th class="px-5 py-4">Estado</th>
             <th class="px-5 py-4 text-right">Acciones</th>
@@ -47,15 +51,21 @@ function paymentLabel(value: VentaRealizada['metodoPago']) {
 
         <tbody class="divide-y divide-gray-100">
           <tr v-for="venta in ventas" :key="venta.id" class="hover:bg-gray-50">
-            <td class="px-5 py-4 font-medium text-gray-900">{{ venta.folio }}</td>
-            <td class="whitespace-nowrap px-5 py-4 text-gray-600">{{ venta.fecha }}</td>
-            <td class="px-5 py-4 text-gray-600">
-              {{ venta.items.reduce((total, item) => total + item.cantidad, 0) }}
+            <td class="px-5 py-4 font-medium text-gray-900">
+              {{ venta.folio }}
             </td>
-            <td class="px-5 py-4 text-gray-600">{{ paymentLabel(venta.metodoPago) }}</td>
-            <td class="px-5 py-4 font-semibold text-gray-900">{{ formatCurrency(venta.total) }}</td>
+            <td class="whitespace-nowrap px-5 py-4 text-gray-600">
+              {{ formatDate(venta.fecha) }}
+            </td>
+            <td class="px-5 py-4 text-gray-600">{{ venta.usuario }}</td>
+            <td class="px-5 py-4 font-semibold text-gray-900">
+              {{ formatCurrency(venta.total) }}
+            </td>
             <td class="px-5 py-4">
-              <StatusChip status="success" label="Completada" />
+              <StatusChip
+                :status="statusFor(venta.estado).status"
+                :label="statusFor(venta.estado).label"
+              />
             </td>
             <td class="px-5 py-4">
               <div class="flex justify-end gap-1">
@@ -75,6 +85,16 @@ function paymentLabel(value: VentaRealizada['metodoPago']) {
                   @click="emit('reprint', venta)"
                 >
                   <PrinterIcon class="h-5 w-5" />
+                </button>
+
+                <button
+                  v-if="canCancel && venta.estado === 'COMPLETADA'"
+                  type="button"
+                  class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                  aria-label="Cancelar venta"
+                  @click="emit('cancel', venta)"
+                >
+                  <XCircleIcon class="h-5 w-5" />
                 </button>
               </div>
             </td>

@@ -4,14 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-  "dev": "vite",
-  "build": "run-p type-check \"build-only {@}\" --",
-  "preview": "vite preview",
-  "build-only": "vite build",
-  "type-check": "vue-tsc --build",
-  "lint": "eslint . --fix --cache",
-  "format": "prettier --write --experimental-cli src/"
-},
+    "dev": "vite",
+    "build": "run-p type-check \"build-only {@}\" --",
+    "preview": "vite preview",
+    "build-only": "vite build",
+    "type-check": "vue-tsc --build",
+    "lint": "eslint . --fix --cache",
+    "format": "prettier --write --experimental-cli src/"
+  },
   "dependencies": {
     "@formkit/auto-animate": "^0.10.0",
     "@heroicons/vue": "^2.2.0",

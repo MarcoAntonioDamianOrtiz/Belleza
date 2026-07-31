@@ -3,42 +3,48 @@ import { reactive } from 'vue'
 
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 
+import type { Categoria } from '@/types/categoria'
 import type { Producto } from '@/types/producto'
 
 interface Props {
   producto?: Producto | null
+  categorias: Categoria[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
   producto: null,
 })
 
+export interface ProductoFormData {
+  nombre: string
+  categoriaId: string
+  descripcion: string
+}
+
 const emit = defineEmits<{
   submit: [data: ProductoFormData]
   cancel: []
 }>()
 
-export interface ProductoFormData {
-  nombre: string
-  categoria: string
-  descripcion: string
-}
-
 const form = reactive<ProductoFormData>({
   nombre: props.producto?.nombre ?? '',
-  categoria: props.producto?.categoria ?? '',
+  categoriaId: props.producto?.categoriaId ?? '',
   descripcion: props.producto?.descripcion ?? '',
 })
 
+const options = props.categorias.map((item) => ({
+  label: item.nombre,
+  value: item.id,
+}))
+
 function submitForm() {
-  if (!form.nombre.trim() || !form.categoria.trim()) {
-    return
-  }
+  if (!form.nombre.trim() || !form.categoriaId) return
 
   emit('submit', {
     nombre: form.nombre.trim(),
-    categoria: form.categoria.trim(),
+    categoriaId: form.categoriaId,
     descripcion: form.descripcion.trim(),
   })
 }
@@ -53,7 +59,13 @@ function submitForm() {
       required
     />
 
-    <BaseInput v-model="form.categoria" label="Categoría" placeholder="Ej. Maquillaje" required />
+    <BaseSelect
+      v-model="form.categoriaId"
+      label="Categoría"
+      :options="options"
+      placeholder="Selecciona una categoría"
+      required
+    />
 
     <div>
       <label class="mb-2 block text-sm font-medium text-gray-700"> Descripción </label>

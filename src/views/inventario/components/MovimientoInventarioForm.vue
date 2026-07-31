@@ -8,16 +8,25 @@ import HelpTooltip from '@/components/ui/HelpTooltip.vue'
 
 type TipoMovimiento = 'entrada' | 'salida' | 'ajuste'
 
-interface Props {
-  tipo: TipoMovimiento
+export interface VarianteMovimientoOption {
+  value: string
+  label: string
+  stock: number
 }
 
-const props = defineProps<Props>()
+interface Props {
+  tipo: TipoMovimiento
+  variantes: VarianteMovimientoOption[]
+  loading?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  loading: false,
+})
 
 export interface MovimientoFormData {
-  varianteId: number
-  cantidad?: number
-  stockNuevo?: number
+  varianteId: string
+  cantidad: number
   motivo: string
 }
 
@@ -26,66 +35,32 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-// MOCK temporal.
-// Después las variantes disponibles vendrán del backend.
-const variantes = [
-  {
-    value: 1,
-    label: 'Labial Mate - Rojo Cereza',
-    stock: 24,
-  },
-  {
-    value: 2,
-    label: 'Labial Mate - Rosa Nude',
-    stock: 4,
-  },
-  {
-    value: 3,
-    label: 'Labial Mate - Ciruela',
-    stock: 0,
-  },
-]
-
-const form = reactive({
-  varianteId: 0,
+const form = reactive<MovimientoFormData>({
+  varianteId: '',
   cantidad: 1,
-  stockNuevo: 0,
   motivo: '',
 })
 
 const selectedVariant = computed(() =>
-  variantes.find((variante) => variante.value === Number(form.varianteId)),
+  props.variantes.find((item) => item.value === form.varianteId),
 )
 
 const title = computed(() => {
   if (props.tipo === 'entrada') return 'Registrar entrada'
   if (props.tipo === 'salida') return 'Registrar salida'
-
   return 'Registrar ajuste'
 })
 
 function submitForm() {
   if (!form.varianteId || !form.motivo.trim()) return
 
-  if (props.tipo === 'ajuste') {
-    const stockNuevo = Number(form.stockNuevo)
+  const cantidad = Number(form.cantidad)
 
-    if (stockNuevo < 0) return
-
-    emit('submit', {
-      varianteId: Number(form.varianteId),
-      stockNuevo,
-      motivo: form.motivo.trim(),
-    })
-
-    return
-  }
-
-  if (form.cantidad <= 0) return
+  if (cantidad <= 0) return
 
   emit('submit', {
-    varianteId: Number(form.varianteId),
-    cantidad: Number(form.cantidad),
+    varianteId: form.varianteId,
+    cantidad,
     motivo: form.motivo.trim(),
   })
 }
@@ -94,11 +69,8 @@ function submitForm() {
 <template>
   <form class="space-y-5" @submit.prevent="submitForm">
     <div>
-      <h3 class="font-semibold text-gray-900">
-        {{ title }}
-      </h3>
-
-      <p class="mt-1 text-sm text-gray-500">Ingresa la información del movimiento de inventario.</p>
+      <h3 class="font-semibold text-gray-900">{{ title }}</h3>
+      <p class="mt-1 text-sm text-gray-500">Ingresa la información del movimiento.</p>
     </div>
 
     <BaseSelect
@@ -106,11 +78,11 @@ function submitForm() {
       label="Producto / Variante"
       :options="variantes"
       placeholder="Selecciona una variante"
+      required
     />
 
     <div v-if="selectedVariant" class="rounded-xl bg-gray-50 px-4 py-3">
       <p class="text-xs font-medium uppercase text-gray-400">Stock actual</p>
-
       <p class="mt-1 text-lg font-semibold text-gray-900">{{ selectedVariant.stock }} unidades</p>
     </div>
 
@@ -123,15 +95,15 @@ function submitForm() {
       required
     />
 
-    <BaseInput v-else v-model="form.stockNuevo" type="number" min="0" required>
+    <BaseInput v-else v-model="form.cantidad" type="number" min="1" required>
       <template #label>
         <span>Stock real</span>
-
         <HelpTooltip
-          text="Cantidad de unidades que realmente existen después de revisar físicamente el inventario."
+          text="Cantidad total de unidades que realmente existen al revisar el producto."
         />
       </template>
     </BaseInput>
+
     <div>
       <label for="motivo-movimiento" class="mb-2 block text-sm font-medium text-gray-700">
         Motivo
@@ -150,7 +122,7 @@ function submitForm() {
     <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
       <BaseButton variant="secondary" @click="emit('cancel')"> Cancelar </BaseButton>
 
-      <BaseButton type="submit"> Registrar </BaseButton>
+      <BaseButton type="submit" :loading="loading"> Registrar </BaseButton>
     </div>
   </form>
 </template>
