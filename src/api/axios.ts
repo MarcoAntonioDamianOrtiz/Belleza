@@ -11,6 +11,14 @@ interface RetryRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean
 }
 
+interface RefreshResponse {
+  success: boolean
+  message?: string
+  data: {
+    access: string
+  }
+}
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   headers: {
@@ -39,7 +47,7 @@ async function obtainNewAccessToken(): Promise<string> {
     throw new Error('Sesión no disponible')
   }
 
-  const response = await axios.post<{ access: string }>(
+  const response = await axios.post<RefreshResponse>(
     `${import.meta.env.VITE_API_URL}/auth/refresh/`,
     { refresh },
     {
@@ -51,18 +59,23 @@ async function obtainNewAccessToken(): Promise<string> {
     },
   )
 
-  updateAccessToken(response.data.access)
+  const access = response.data.data.access
 
-  return response.data.access
+  updateAccessToken(access)
+
+  return access
 }
 
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const request = error.config as RetryRequestConfig | undefined
+
     const isUnauthorized = error.response?.status === 401
+
     const isAuthRequest =
-      request?.url?.includes('/auth/login/') || request?.url?.includes('/auth/refresh/')
+      request?.url?.includes('/auth/login/') ||
+      request?.url?.includes('/auth/refresh/')
 
     if (!isUnauthorized || !request || request._retry || isAuthRequest) {
       return Promise.reject(error)
@@ -74,17 +87,18 @@ api.interceptors.response.use(
       refreshPromise ??= obtainNewAccessToken()
 
       const access = await refreshPromise
+
       request.headers.Authorization = `Bearer ${access}`
 
       return api(request)
-    } catch {
+    } catch (refreshError) {
       clearAuthSession()
 
       if (window.location.pathname !== '/login') {
         window.location.replace('/login')
       }
 
-      return Promise.reject(error)
+      return Promise.reject(refreshError)
     } finally {
       refreshPromise = null
     }

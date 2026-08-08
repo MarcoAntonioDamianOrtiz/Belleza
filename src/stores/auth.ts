@@ -32,7 +32,12 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = response.data.usuario
       accessToken.value = response.data.access
 
-      saveAuthSession(response.data.access, response.data.refresh, response.data.usuario, remember)
+      saveAuthSession(
+        response.data.access,
+        response.data.refresh,
+        response.data.usuario,
+        remember,
+      )
 
       return response
     } finally {
