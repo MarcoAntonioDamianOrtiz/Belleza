@@ -182,78 +182,155 @@ onMounted(loadUsers)
 
     <BaseLoader v-if="loading" text="Cargando usuarios..." />
 
-    <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[900px] text-left text-sm">
-          <thead class="border-b border-gray-200 bg-gray-50">
-            <tr class="text-xs font-semibold uppercase text-gray-500">
-              <th class="px-5 py-4">Nombre</th>
-              <th class="px-5 py-4">Usuario</th>
-              <th class="px-5 py-4">Correo</th>
-              <th class="px-5 py-4">Rol</th>
-              <th class="px-5 py-4">Estado</th>
-              <th class="px-5 py-4 text-right">Acciones</th>
-            </tr>
-          </thead>
+    <div v-else>
+      <div class="grid gap-3 lg:hidden">
+        <article
+          v-for="user in paginatedUsers"
+          :key="user.id"
+          class="rounded-2xl border border-[#ECECEC] bg-white p-4"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-semibold text-gray-900">{{ user.nombre }} {{ user.apellido }}</p>
+              <p class="mt-1 text-sm text-gray-500">@{{ user.usuario }}</p>
+            </div>
 
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="user in paginatedUsers" :key="user.id" class="hover:bg-gray-50">
-              <td class="px-5 py-4 font-medium text-gray-900">
-                {{ user.nombre }} {{ user.apellido }}
-              </td>
-              <td class="px-5 py-4 text-gray-600">{{ user.usuario }}</td>
-              <td class="px-5 py-4 text-gray-600">{{ user.email }}</td>
-              <td class="px-5 py-4">
+            <StatusChip
+              :status="user.activo ? 'success' : 'danger'"
+              :label="user.activo ? 'Activo' : 'Inactivo'"
+            />
+          </div>
+
+          <div class="mt-4 space-y-3 text-sm">
+            <div>
+              <p class="text-xs uppercase text-gray-400">Correo</p>
+              <p class="mt-1 break-all text-gray-700">{{ user.email }}</p>
+            </div>
+
+            <div>
+              <p class="text-xs uppercase text-gray-400">Rol</p>
+              <div class="mt-1">
                 <StatusChip
                   :status="user.rol === 1 ? 'info' : 'neutral'"
                   :label="user.rol === 1 ? 'Administrador' : 'Empleado'"
                 />
-              </td>
-              <td class="px-5 py-4">
-                <StatusChip
-                  :status="user.activo ? 'success' : 'danger'"
-                  :label="user.activo ? 'Activo' : 'Inactivo'"
-                />
-              </td>
-              <td class="px-5 py-4">
-                <div class="flex justify-end gap-1">
-                  <button
-                    type="button"
-                    class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
-                    aria-label="Editar usuario"
-                    @click="editUser(user)"
-                  >
-                    <PencilSquareIcon class="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    :disabled="user.id === authStore.user?.id"
-                    :title="
-                      user.id === authStore.user?.id
-                        ? 'No puedes desactivar tu propio usuario'
-                        : 'Desactivar usuario'
-                    "
-                    class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-35"
-                    aria-label="Desactivar usuario"
-                    @click="requestDelete(user)"
-                  >
-                    <TrashIcon class="h-5 w-5" />
-                  </button>
-                </div>
-              </td>
-            </tr>
+              </div>
+            </div>
+          </div>
 
-            <tr v-if="!paginatedUsers.length">
-              <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                No se encontraron usuarios.
-              </td>
-            </tr>
-          </tbody>
-        </table>
+          <div class="mt-4 flex justify-end gap-1 border-t border-gray-100 pt-3">
+            <button
+              type="button"
+              class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
+              aria-label="Editar usuario"
+              @click="editUser(user)"
+            >
+              <PencilSquareIcon class="h-5 w-5" />
+            </button>
+
+            <button
+              type="button"
+              :disabled="user.id === authStore.user?.id"
+              :title="
+                user.id === authStore.user?.id
+                  ? 'No puedes desactivar tu propio usuario'
+                  : 'Desactivar usuario'
+              "
+              class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-35"
+              aria-label="Desactivar usuario"
+              @click="requestDelete(user)"
+            >
+              <TrashIcon class="h-5 w-5" />
+            </button>
+          </div>
+        </article>
+
+        <div
+          v-if="!paginatedUsers.length"
+          class="rounded-2xl border border-[#ECECEC] bg-white p-10 text-center text-gray-500"
+        >
+          No se encontraron usuarios.
+        </div>
+
+        <div class="rounded-2xl border border-[#ECECEC] bg-white px-5 py-4">
+          <BasePagination :page="page" :total-pages="totalPages" @change="page = $event" />
+        </div>
       </div>
 
-      <div class="border-t border-gray-100 px-5 py-4">
-        <BasePagination :page="page" :total-pages="totalPages" @change="page = $event" />
+      <div class="hidden overflow-hidden rounded-2xl border border-[#ECECEC] bg-white lg:block">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[900px] text-left text-sm">
+            <thead class="border-b border-gray-200 bg-gray-50">
+              <tr class="text-xs font-semibold uppercase text-gray-500">
+                <th class="px-5 py-4">Nombre</th>
+                <th class="px-5 py-4">Usuario</th>
+                <th class="px-5 py-4">Correo</th>
+                <th class="px-5 py-4">Rol</th>
+                <th class="px-5 py-4">Estado</th>
+                <th class="px-5 py-4 text-right">Acciones</th>
+              </tr>
+            </thead>
+
+            <tbody class="divide-y divide-gray-100">
+              <tr v-for="user in paginatedUsers" :key="user.id" class="hover:bg-gray-50">
+                <td class="px-5 py-4 font-medium text-gray-900">
+                  {{ user.nombre }} {{ user.apellido }}
+                </td>
+                <td class="px-5 py-4 text-gray-600">{{ user.usuario }}</td>
+                <td class="px-5 py-4 text-gray-600">{{ user.email }}</td>
+                <td class="px-5 py-4">
+                  <StatusChip
+                    :status="user.rol === 1 ? 'info' : 'neutral'"
+                    :label="user.rol === 1 ? 'Administrador' : 'Empleado'"
+                  />
+                </td>
+                <td class="px-5 py-4">
+                  <StatusChip
+                    :status="user.activo ? 'success' : 'danger'"
+                    :label="user.activo ? 'Activo' : 'Inactivo'"
+                  />
+                </td>
+                <td class="px-5 py-4">
+                  <div class="flex justify-end gap-1">
+                    <button
+                      type="button"
+                      class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
+                      aria-label="Editar usuario"
+                      @click="editUser(user)"
+                    >
+                      <PencilSquareIcon class="h-5 w-5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      :disabled="user.id === authStore.user?.id"
+                      :title="
+                        user.id === authStore.user?.id
+                          ? 'No puedes desactivar tu propio usuario'
+                          : 'Desactivar usuario'
+                      "
+                      class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-35"
+                      aria-label="Desactivar usuario"
+                      @click="requestDelete(user)"
+                    >
+                      <TrashIcon class="h-5 w-5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <tr v-if="!paginatedUsers.length">
+                <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                  No se encontraron usuarios.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="border-t border-gray-100 px-5 py-4">
+          <BasePagination :page="page" :total-pages="totalPages" @change="page = $event" />
+        </div>
       </div>
     </div>
 

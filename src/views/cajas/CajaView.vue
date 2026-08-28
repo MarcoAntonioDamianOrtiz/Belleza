@@ -44,7 +44,7 @@ const modalMode = ref<ModalMode>('crear')
 
 const form = reactive({
   nombre: '',
-  efectivo: 0,
+  efectivo: '',
 })
 
 const modalTitle = computed(() => {
@@ -88,14 +88,14 @@ function openCreate() {
 
 function openBox(caja: Caja) {
   selectedCaja.value = caja
-  form.efectivo = 0
+  form.efectivo = ''
   modalMode.value = 'abrir'
   modalOpen.value = true
 }
 
 function closeBox(caja: Caja) {
   selectedCaja.value = caja
-  form.efectivo = 0
+  form.efectivo = ''
   modalMode.value = 'cerrar'
   modalOpen.value = true
 }
@@ -309,9 +309,10 @@ onMounted(loadData)
         <BaseInput
           v-else
           v-model="form.efectivo"
-          type="number"
-          min="0"
-          step="0.01"
+          type="text"
+          inputmode="decimal"
+          autocomplete="off"
+          placeholder="0.00"
           :label="modalMode === 'abrir' ? 'Efectivo inicial' : 'Efectivo contado'"
           required
         />

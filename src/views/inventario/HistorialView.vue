@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
@@ -20,6 +21,13 @@ const search = ref('')
 const typeFilter = ref<'TODOS' | TipoMovimientoInventario>('TODOS')
 const loading = ref(false)
 const movimientos = ref<MovimientoVista[]>([])
+
+const typeOptions = [
+  { label: 'Todos los movimientos', value: 'TODOS' },
+  { label: 'Entradas', value: 'ENTRADA' },
+  { label: 'Salidas', value: 'SALIDA' },
+  { label: 'Ajustes', value: 'AJUSTE' },
+]
 
 const filtered = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -96,67 +104,123 @@ onMounted(loadData)
         <SearchBar v-model="search" placeholder="Buscar producto, variante, SKU o motivo..." />
       </div>
 
-      <select
-        v-model="typeFilter"
-        class="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-sm text-gray-700 outline-none focus:border-[#C56B86] focus:ring-2 focus:ring-[#C56B86]/15"
-      >
-        <option value="TODOS">Todos los movimientos</option>
-        <option value="ENTRADA">Entradas</option>
-        <option value="SALIDA">Salidas</option>
-        <option value="AJUSTE">Ajustes</option>
-      </select>
+      <div class="w-full md:w-64">
+        <BaseSelect
+          v-model="typeFilter"
+          :options="typeOptions"
+          placeholder="Todos los movimientos"
+        />
+      </div>
     </div>
 
     <BaseLoader v-if="loading" text="Cargando historial..." />
 
-    <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[950px] text-left text-sm">
-          <thead class="border-b border-gray-200 bg-gray-50">
-            <tr class="text-xs font-semibold uppercase text-gray-500">
-              <th class="px-5 py-4">Fecha</th>
-              <th class="px-5 py-4">Producto</th>
-              <th class="px-5 py-4">Variante</th>
-              <th class="px-5 py-4">SKU</th>
-              <th class="px-5 py-4">Tipo</th>
-              <th class="px-5 py-4">Cantidad</th>
-              <th class="px-5 py-4">Motivo</th>
-              <th class="px-5 py-4">Usuario</th>
-            </tr>
-          </thead>
-
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
-              <td class="whitespace-nowrap px-5 py-4 text-gray-600">
-                {{ formatDate(item.fecha) }}
-              </td>
-              <td class="px-5 py-4 font-medium text-gray-900">
+    <div v-else>
+      <div class="grid gap-3 lg:hidden">
+        <article
+          v-for="item in filtered"
+          :key="item.id"
+          class="rounded-2xl border border-[#ECECEC] bg-white p-4"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-semibold text-gray-900">
                 {{ item.producto }}
-              </td>
-              <td class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
-              <td class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
-              <td class="px-5 py-4">
-                <StatusChip
-                  :status="statusFor(item.tipo).status"
-                  :label="statusFor(item.tipo).label"
-                />
-              </td>
-              <td class="px-5 py-4 font-semibold text-gray-900">
-                {{ quantityLabel(item) }}
-              </td>
-              <td class="px-5 py-4 text-gray-600">
-                {{ item.observaciones || 'Sin observaciones' }}
-              </td>
-              <td class="px-5 py-4 text-gray-600">{{ item.usuario }}</td>
-            </tr>
+              </p>
+              <p class="mt-1 text-sm text-gray-500">{{ item.variante }} · {{ item.sku }}</p>
+            </div>
 
-            <tr v-if="!filtered.length">
-              <td colspan="8" class="px-6 py-12 text-center text-gray-500">
-                No se encontraron movimientos.
-              </td>
-            </tr>
-          </tbody>
-        </table>
+            <StatusChip :status="statusFor(item.tipo).status" :label="statusFor(item.tipo).label" />
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-xs uppercase text-gray-400">Fecha</p>
+              <p class="mt-1 text-gray-700">
+                {{ formatDate(item.fecha) }}
+              </p>
+            </div>
+
+            <div>
+              <p class="text-xs uppercase text-gray-400">Cantidad</p>
+              <p class="mt-1 font-semibold text-gray-900">
+                {{ quantityLabel(item) }}
+              </p>
+            </div>
+
+            <div class="col-span-2">
+              <p class="text-xs uppercase text-gray-400">Motivo</p>
+              <p class="mt-1 break-words text-gray-700">
+                {{ item.observaciones || 'Sin observaciones' }}
+              </p>
+            </div>
+
+            <div class="col-span-2">
+              <p class="text-xs uppercase text-gray-400">Usuario</p>
+              <p class="mt-1 text-gray-700">
+                {{ item.usuario }}
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <div
+          v-if="!filtered.length"
+          class="rounded-2xl border border-[#ECECEC] bg-white px-6 py-12 text-center text-gray-500"
+        >
+          No se encontraron movimientos.
+        </div>
+      </div>
+
+      <div class="hidden overflow-hidden rounded-2xl border border-[#ECECEC] bg-white lg:block">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[950px] text-left text-sm">
+            <thead class="border-b border-gray-200 bg-gray-50">
+              <tr class="text-xs font-semibold uppercase text-gray-500">
+                <th class="px-5 py-4">Fecha</th>
+                <th class="px-5 py-4">Producto</th>
+                <th class="px-5 py-4">Variante</th>
+                <th class="px-5 py-4">SKU</th>
+                <th class="px-5 py-4">Tipo</th>
+                <th class="px-5 py-4">Cantidad</th>
+                <th class="px-5 py-4">Motivo</th>
+                <th class="px-5 py-4">Usuario</th>
+              </tr>
+            </thead>
+
+            <tbody class="divide-y divide-gray-100">
+              <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
+                <td class="whitespace-nowrap px-5 py-4 text-gray-600">
+                  {{ formatDate(item.fecha) }}
+                </td>
+                <td class="px-5 py-4 font-medium text-gray-900">
+                  {{ item.producto }}
+                </td>
+                <td class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
+                <td class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
+                <td class="px-5 py-4">
+                  <StatusChip
+                    :status="statusFor(item.tipo).status"
+                    :label="statusFor(item.tipo).label"
+                  />
+                </td>
+                <td class="px-5 py-4 font-semibold text-gray-900">
+                  {{ quantityLabel(item) }}
+                </td>
+                <td class="px-5 py-4 text-gray-600">
+                  {{ item.observaciones || 'Sin observaciones' }}
+                </td>
+                <td class="px-5 py-4 text-gray-600">{{ item.usuario }}</td>
+              </tr>
+
+              <tr v-if="!filtered.length">
+                <td colspan="8" class="px-6 py-12 text-center text-gray-500">
+                  No se encontraron movimientos.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>
