@@ -26,17 +26,18 @@ import {
   getDevoluciones,
   rechazarDevolucion,
 } from '@/api/devoluciones'
-import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/formatDate'
+import { useAuthStore } from '@/stores/auth'
 import { getFriendlyError } from '@/utils/apiError'
 import { showError, showSuccess } from '@/utils/notifications'
+import { getMetodosPagoActivos } from '@/api/metodosPago'
 import { buildVentaOptions, loadSoldVariantOptions, loadVentaCatalog } from '@/utils/ventaOptions'
 
 import type { Devolucion, TipoDevolucion } from '@/types/devolucion'
 import type { SoldVariantOption, VentaCatalog } from '@/utils/ventaOptions'
 
 interface ReturnLine {
-  varianteId: string
+  detalleVentaId: string
   label: string
   cantidad: number
   cantidadVendida: number
@@ -47,6 +48,7 @@ const authStore = useAuthStore()
 const items = ref<Devolucion[]>([])
 const catalog = ref<VentaCatalog | null>(null)
 const soldVariants = ref<SoldVariantOption[]>([])
+const paymentOptions = ref<Array<{ label: string; value: string }>>([])
 const selectedLines = ref<ReturnLine[]>([])
 const search = ref('')
 const statusFilter = ref('TODOS')
@@ -66,6 +68,7 @@ const form = reactive({
   motivo: '',
   varianteId: '',
   cantidad: 1,
+  metodoPagoReembolsoId: '',
 })
 
 const ventaOptions = computed(() => buildVentaOptions(catalog.value?.ventas ?? []))
@@ -138,10 +141,15 @@ async function loadData() {
   loading.value = true
 
   try {
-    const [returns, salesCatalog] = await Promise.all([getDevoluciones(), loadVentaCatalog()])
+    const [returns, salesCatalog, paymentMethods] = await Promise.all([
+      getDevoluciones(),
+      loadVentaCatalog(),
+      getMetodosPagoActivos(),
+    ])
 
     items.value = returns
     catalog.value = salesCatalog
+    paymentOptions.value = paymentMethods.map((item) => ({ label: item.nombre, value: item.id }))
   } catch (error) {
     await showError(getFriendlyError(error, 'No fue posible cargar las devoluciones.'))
   } finally {
@@ -181,6 +189,7 @@ function openCreate() {
   form.motivo = ''
   form.varianteId = ''
   form.cantidad = 1
+  form.metodoPagoReembolsoId = ''
   soldVariants.value = []
   selectedLines.value = []
   formMessage.value = ''
@@ -206,13 +215,13 @@ function addReturnLine() {
     return
   }
 
-  const existing = selectedLines.value.find((item) => item.varianteId === variant.value)
+  const existing = selectedLines.value.find((item) => item.detalleVentaId === variant.detalleVentaId)
 
   if (existing) {
     existing.cantidad = quantity
   } else {
     selectedLines.value.push({
-      varianteId: variant.value,
+      detalleVentaId: variant.detalleVentaId,
       label: variant.label,
       cantidad: quantity,
       cantidadVendida: variant.cantidadVendida,
@@ -224,13 +233,13 @@ function addReturnLine() {
   formMessage.value = ''
 }
 
-function removeReturnLine(varianteId: string) {
-  selectedLines.value = selectedLines.value.filter((item) => item.varianteId !== varianteId)
+function removeReturnLine(detalleVentaId: string) {
+  selectedLines.value = selectedLines.value.filter((item) => item.detalleVentaId !== detalleVentaId)
 }
 
 async function saveReturn() {
-  if (!form.ventaId || !form.motivo.trim() || !selectedLines.value.length) {
-    formMessage.value = 'Completa la venta, los productos y el motivo.'
+  if (!form.ventaId || !form.metodoPagoReembolsoId || !form.motivo.trim() || !selectedLines.value.length) {
+    formMessage.value = 'Completa la venta, el método de reembolso, los productos y el motivo.'
     return
   }
 
@@ -240,14 +249,13 @@ async function saveReturn() {
   try {
     await createDevolucion({
       venta_id: form.ventaId,
+      metodo_pago_reembolso_id: form.metodoPagoReembolsoId,
       tipo: form.tipo,
       motivo: form.motivo.trim(),
       productos: selectedLines.value.map((item) => ({
-        variante_id: item.varianteId,
+        detalle_venta_id: item.detalleVentaId,
         cantidad: item.cantidad,
       })),
-      autorizado_por:
-        form.tipo === 'EXTRAORDINARIA' ? (authStore.user?.id ?? undefined) : undefined,
     })
 
     modalOpen.value = false
@@ -341,7 +349,7 @@ onMounted(loadData)
 
     <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[950px] text-left text-sm">
+        <table class="mobile-stack-table w-full min-w-[950px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
               <th class="px-5 py-4">Fecha</th>
@@ -355,19 +363,19 @@ onMounted(loadData)
 
           <tbody class="divide-y divide-gray-100">
             <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
-              <td class="whitespace-nowrap px-5 py-4 text-gray-600">
+              <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
-              <td class="px-5 py-4 font-medium text-gray-900">{{ item.ventaFolio }}</td>
-              <td class="px-5 py-4 text-gray-600">{{ item.tipo }}</td>
-              <td class="max-w-xs truncate px-5 py-4 text-gray-600">{{ item.motivo }}</td>
-              <td class="px-5 py-4">
+              <td data-label="Venta" class="px-5 py-4 font-medium text-gray-900">{{ item.ventaFolio }}</td>
+              <td data-label="Tipo" class="px-5 py-4 text-gray-600">{{ item.tipo }}</td>
+              <td data-label="Motivo" class="max-w-xs truncate px-5 py-4 text-gray-600">{{ item.motivo }}</td>
+              <td data-label="Estado" class="px-5 py-4">
                 <StatusChip
                   :status="statusFor(item.estado).status"
                   :label="statusFor(item.estado).label"
                 />
               </td>
-              <td class="px-5 py-4">
+              <td data-label="Acciones" class="px-5 py-4">
                 <div class="flex justify-end gap-1">
                   <button
                     type="button"
@@ -423,6 +431,14 @@ onMounted(loadData)
         />
 
         <BaseSelect
+          v-model="form.metodoPagoReembolsoId"
+          label="Método de reembolso"
+          :options="paymentOptions"
+          placeholder="Selecciona el método de reembolso"
+          required
+        />
+
+        <BaseSelect
           v-model="form.tipo"
           label="Tipo de devolución"
           :options="typeOptions"
@@ -457,7 +473,7 @@ onMounted(loadData)
         <div v-if="selectedLines.length" class="divide-y divide-gray-100 rounded-xl border">
           <div
             v-for="line in selectedLines"
-            :key="line.varianteId"
+            :key="line.detalleVentaId"
             class="flex items-center justify-between gap-4 p-4"
           >
             <div>
@@ -469,19 +485,12 @@ onMounted(loadData)
               type="button"
               class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500"
               aria-label="Quitar producto"
-              @click="removeReturnLine(line.varianteId)"
+              @click="removeReturnLine(line.detalleVentaId)"
             >
               <TrashIcon class="h-5 w-5" />
             </button>
           </div>
         </div>
-
-        <p
-          v-if="form.tipo === 'EXTRAORDINARIA'"
-          class="rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700"
-        >
-          La autorización quedará registrada con tu usuario.
-        </p>
 
         <div>
           <label class="mb-2 block text-sm font-medium text-gray-700">Motivo</label>

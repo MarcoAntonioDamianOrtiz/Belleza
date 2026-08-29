@@ -1,4 +1,3 @@
-import { getProductos } from '@/api/productos'
 import { getVariantes } from '@/api/variantes'
 import { getVenta, getVentas } from '@/api/ventas'
 import { formatDate } from '@/utils/formatDate'
@@ -14,6 +13,7 @@ export interface VentaOption {
 export interface SoldVariantOption {
   label: string
   value: string
+  detalleVentaId: string
   cantidadVendida: number
   garantiaMeses: number | null
 }
@@ -21,25 +21,11 @@ export interface SoldVariantOption {
 export interface VentaCatalog {
   ventas: VentaResumen[]
   variantes: Variante[]
-  productoNombrePorId: Map<string, string>
-}
-
-function normalize(value: string): string {
-  return value.trim().toLocaleLowerCase('es-MX')
 }
 
 export async function loadVentaCatalog(): Promise<VentaCatalog> {
-  const [ventas, productos, variantes] = await Promise.all([
-    getVentas(),
-    getProductos(),
-    getVariantes(),
-  ])
-
-  return {
-    ventas,
-    variantes,
-    productoNombrePorId: new Map(productos.map((item) => [item.id, item.nombre])),
-  }
+  const [ventas, variantes] = await Promise.all([getVentas(), getVariantes()])
+  return { ventas, variantes }
 }
 
 export function buildVentaOptions(ventas: VentaResumen[]): VentaOption[] {
@@ -57,27 +43,17 @@ export async function loadSoldVariantOptions(
 ): Promise<{ detalle: VentaDetalle; opciones: SoldVariantOption[] }> {
   const detalle = await getVenta(ventaId)
 
-  const opciones = detalle.productos
-    .map((linea) => {
-      const variante = catalog.variantes.find((item) => {
-        const producto = catalog.productoNombrePorId.get(item.productoId) ?? ''
+  const opciones = detalle.productos.map((linea) => {
+    const variante = catalog.variantes.find((item) => item.id === linea.varianteId)
 
-        return (
-          normalize(producto) === normalize(linea.producto) &&
-          normalize(item.nombre) === normalize(linea.variante)
-        )
-      })
-
-      if (!variante) return null
-
-      return {
-        value: variante.id,
-        label: `${linea.producto} - ${linea.variante} · ${linea.cantidad} vendidos`,
-        cantidadVendida: linea.cantidad,
-        garantiaMeses: variante.garantiaMeses,
-      }
-    })
-    .filter((item): item is SoldVariantOption => item !== null)
+    return {
+      value: linea.varianteId,
+      detalleVentaId: linea.detalleId,
+      label: `${linea.producto} - ${linea.variante} · ${linea.cantidad} vendidos`,
+      cantidadVendida: linea.cantidad,
+      garantiaMeses: variante?.garantiaMeses ?? null,
+    }
+  })
 
   return { detalle, opciones }
 }

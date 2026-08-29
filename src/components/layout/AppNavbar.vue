@@ -28,7 +28,7 @@ async function handleLogout() {
 
 <template>
   <header
-    class="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-[#ECECEC] bg-white px-4 sm:px-6"
+    class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#ECECEC] bg-white px-3 sm:h-20 sm:px-6"
   >
     <div class="flex items-center gap-3">
       <button
@@ -40,7 +40,7 @@ async function handleLogout() {
         <Bars3Icon class="h-6 w-6" />
       </button>
 
-      <p class="text-sm font-medium text-gray-700">Sistema de punto de venta</p>
+      <p class="max-w-[11rem] truncate text-xs font-medium text-gray-700 sm:max-w-none sm:text-sm">Sistema de punto de venta</p>
     </div>
 
     <div class="relative">

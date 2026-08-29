@@ -448,7 +448,7 @@ onMounted(loadData)
           </div>
 
           <div class="mt-5 overflow-x-auto">
-            <table class="w-full min-w-[720px] text-left text-sm">
+            <table class="mobile-stack-table w-full min-w-[720px] text-left text-sm">
               <thead class="border-y border-gray-200 bg-gray-50">
                 <tr class="text-xs font-semibold uppercase text-gray-500">
                   <th class="px-4 py-3">Producto</th>
@@ -466,17 +466,17 @@ onMounted(loadData)
                   :key="variante.id"
                   class="hover:bg-gray-50"
                 >
-                  <td class="px-4 py-4 font-medium text-gray-900">
+                  <td data-label="Producto" class="px-4 py-4 font-medium text-gray-900">
                     {{ variante.producto }}
                   </td>
-                  <td class="px-4 py-4 text-gray-600">
+                  <td data-label="Variante" class="px-4 py-4 text-gray-600">
                     {{ variante.variante }}
                   </td>
-                  <td class="px-4 py-4 text-gray-600">{{ variante.sku }}</td>
-                  <td class="px-4 py-4 font-semibold text-gray-900">
+                  <td data-label="SKU" class="px-4 py-4 text-gray-600">{{ variante.sku }}</td>
+                  <td data-label="Precio" class="px-4 py-4 font-semibold text-gray-900">
                     {{ formatCurrency(variante.precioMenudeo) }}
                   </td>
-                  <td class="px-4 py-4">
+                  <td data-label="Stock" class="px-4 py-4">
                     <StatusChip
                       :status="
                         variante.stock <= 0 ? 'danger' : variante.stock <= 5 ? 'warning' : 'success'
@@ -484,7 +484,7 @@ onMounted(loadData)
                       :label="variante.stock <= 0 ? 'Agotado' : `${variante.stock} disponibles`"
                     />
                   </td>
-                  <td class="px-4 py-4 text-right">
+                  <td data-label="Acciones" class="px-4 py-4 text-right">
                     <BaseButton
                       variant="secondary"
                       :disabled="variante.stock <= 0"

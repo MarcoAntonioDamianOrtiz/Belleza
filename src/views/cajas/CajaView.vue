@@ -59,14 +59,20 @@ async function loadData() {
   try {
     cajas.value = await getCajas()
 
-    try {
-      corteActivo.value = await getCorteActivo()
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        corteActivo.value = null
-      } else {
-        throw error
+    const cajaAbierta = cajas.value.find((item) => item.estado === 'ABIERTA')
+
+    if (cajaAbierta) {
+      try {
+        corteActivo.value = await getCorteActivo(cajaAbierta.id)
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          corteActivo.value = null
+        } else {
+          throw error
+        }
       }
+    } else {
+      corteActivo.value = null
     }
 
     if (selectedCaja.value) {
@@ -256,7 +262,7 @@ onMounted(loadData)
         </div>
 
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[800px] text-left text-sm">
+          <table class="mobile-stack-table w-full min-w-[800px] text-left text-sm">
             <thead class="border-b border-gray-200 bg-gray-50">
               <tr class="text-xs font-semibold uppercase text-gray-500">
                 <th class="px-5 py-4">Apertura</th>
@@ -268,19 +274,19 @@ onMounted(loadData)
             </thead>
             <tbody class="divide-y divide-gray-100">
               <tr v-for="item in historial" :key="item.id">
-                <td class="px-5 py-4 text-gray-600">
+                <td data-label="Apertura" class="px-5 py-4 text-gray-600">
                   {{ formatDate(item.fechaInicio) }}
                 </td>
-                <td class="px-5 py-4 text-gray-600">
+                <td data-label="Cierre" class="px-5 py-4 text-gray-600">
                   {{ item.fechaFin ? formatDate(item.fechaFin) : 'Abierto' }}
                 </td>
-                <td class="px-5 py-4 text-gray-600">
+                <td data-label="Inicial" class="px-5 py-4 text-gray-600">
                   {{ formatCurrency(item.efectivoInicial) }}
                 </td>
-                <td class="px-5 py-4 text-gray-600">
+                <td data-label="Final" class="px-5 py-4 text-gray-600">
                   {{ item.efectivoFinal === null ? '—' : formatCurrency(item.efectivoFinal) }}
                 </td>
-                <td class="px-5 py-4 font-medium text-gray-900">
+                <td data-label="Diferencia" class="px-5 py-4 font-medium text-gray-900">
                   {{ item.diferencia === null ? '—' : formatCurrency(item.diferencia) }}
                 </td>
               </tr>
@@ -317,7 +323,7 @@ onMounted(loadData)
           required
         />
 
-        <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
+        <div class="mobile-action-row flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row">
           <BaseButton variant="secondary" @click="modalOpen = false"> Cancelar </BaseButton>
           <BaseButton type="submit" :loading="saving"> Confirmar </BaseButton>
         </div>

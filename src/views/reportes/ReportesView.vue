@@ -57,8 +57,8 @@ async function generateReport() {
   try {
     const params: Record<string, string> = {}
 
-    if (startDate.value) params.fecha_inicial = startDate.value
-    if (endDate.value) params.fecha_final = endDate.value
+    if (startDate.value) params.fecha_inicio = startDate.value
+    if (endDate.value) params.fecha_fin = endDate.value
 
     rows.value = await getReporte(reportType.value, params)
   } catch (error) {
@@ -142,7 +142,7 @@ function exportCsv() {
       </div>
 
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[850px] text-left text-sm">
+        <table class="mobile-stack-table w-full min-w-[850px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
               <th v-for="column in columns" :key="column" class="px-5 py-4">
@@ -153,7 +153,12 @@ function exportCsv() {
 
           <tbody class="divide-y divide-gray-100">
             <tr v-for="(row, index) in rows" :key="index" class="hover:bg-gray-50">
-              <td v-for="column in columns" :key="column" class="px-5 py-4 text-gray-600">
+              <td
+                v-for="column in columns"
+                :key="column"
+                :data-label="formatHeader(column)"
+                class="px-5 py-4 text-gray-600"
+              >
                 {{ formatCell(row[column]) }}
               </td>
             </tr>

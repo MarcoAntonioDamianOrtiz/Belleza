@@ -70,7 +70,7 @@ function statusFor(estado: Devolucion['estado']) {
       <div class="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-100">
         <div
           v-for="(item, index) in devolucion.productos"
-          :key="`${item.varianteId}-${index}`"
+          :key="`${item.id}-${index}`"
           class="flex items-center justify-between gap-4 p-4 text-sm"
         >
           <span class="text-gray-700"> {{ item.producto }} - {{ item.variante }} </span>

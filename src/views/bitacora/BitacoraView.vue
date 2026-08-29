@@ -63,7 +63,7 @@ onMounted(loadData)
 
     <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[900px] text-left text-sm">
+        <table class="mobile-stack-table w-full min-w-[900px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
               <th class="px-5 py-4">Fecha</th>
@@ -76,17 +76,17 @@ onMounted(loadData)
 
           <tbody class="divide-y divide-gray-100">
             <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
-              <td class="whitespace-nowrap px-5 py-4 text-gray-600">
+              <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
-              <td class="px-5 py-4 font-medium text-gray-900">
+              <td data-label="Usuario" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.usuario }}
               </td>
-              <td class="px-5 py-4">
+              <td data-label="Módulo" class="px-5 py-4">
                 <StatusChip status="info" :label="item.modulo" />
               </td>
-              <td class="px-5 py-4 text-gray-600">{{ item.accion }}</td>
-              <td class="px-5 py-4 text-gray-600">
+              <td data-label="Acción" class="px-5 py-4 text-gray-600">{{ item.accion }}</td>
+              <td data-label="Descripción" class="px-5 py-4 text-gray-600">
                 {{ item.descripcion }}
               </td>
             </tr>

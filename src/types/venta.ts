@@ -26,10 +26,13 @@ export interface VentaResumen {
 }
 
 export interface DetalleVentaProducto {
+  detalleId: string
+  varianteId: string
   producto: string
   variante: string
   cantidad: number
   precioUnitario: number
+  descuento: number
   subtotal: number
 }
 

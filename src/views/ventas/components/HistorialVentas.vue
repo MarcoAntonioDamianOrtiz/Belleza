@@ -37,7 +37,7 @@ function statusFor(estado: VentaResumen['estado']) {
 <template>
   <div class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
     <div class="overflow-x-auto">
-      <table v-if="ventas.length" class="w-full min-w-[850px] text-left text-sm">
+      <table v-if="ventas.length" class="mobile-stack-table w-full min-w-[850px] text-left text-sm">
         <thead class="border-b border-gray-200 bg-gray-50">
           <tr class="text-xs font-semibold uppercase text-gray-500">
             <th class="px-5 py-4">Folio</th>
@@ -51,23 +51,23 @@ function statusFor(estado: VentaResumen['estado']) {
 
         <tbody class="divide-y divide-gray-100">
           <tr v-for="venta in ventas" :key="venta.id" class="hover:bg-gray-50">
-            <td class="px-5 py-4 font-medium text-gray-900">
+            <td data-label="Folio" class="px-5 py-4 font-medium text-gray-900">
               {{ venta.folio }}
             </td>
-            <td class="whitespace-nowrap px-5 py-4 text-gray-600">
+            <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
               {{ formatDate(venta.fecha) }}
             </td>
-            <td class="px-5 py-4 text-gray-600">{{ venta.usuario }}</td>
-            <td class="px-5 py-4 font-semibold text-gray-900">
+            <td data-label="Usuario" class="px-5 py-4 text-gray-600">{{ venta.usuario }}</td>
+            <td data-label="Total" class="px-5 py-4 font-semibold text-gray-900">
               {{ formatCurrency(venta.total) }}
             </td>
-            <td class="px-5 py-4">
+            <td data-label="Estado" class="px-5 py-4">
               <StatusChip
                 :status="statusFor(venta.estado).status"
                 :label="statusFor(venta.estado).label"
               />
             </td>
-            <td class="px-5 py-4">
+            <td data-label="Acciones" class="px-5 py-4">
               <div class="flex justify-end gap-1">
                 <button
                   type="button"

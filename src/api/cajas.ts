@@ -1,5 +1,7 @@
 import api from './axios'
 
+import { unwrapList } from '@/utils/apiResponse'
+
 import type { AbrirCajaPayload, Caja, CerrarCajaPayload, CorteCaja } from '@/types/caja'
 import type { ApiResponse } from '@/types/api'
 
@@ -115,13 +117,15 @@ export async function cerrarCaja(payload: CerrarCajaPayload) {
   }
 }
 
-export async function getCorteActivo(): Promise<CorteCaja> {
-  const { data } = await api.get<ApiResponse<CorteApi>>('/caja/corte/activo/')
+export async function getCorteActivo(cajaId: string): Promise<CorteCaja> {
+  const { data } = await api.get<ApiResponse<CorteApi>>('/caja/corte/activo/', {
+    params: { caja_id: cajaId },
+  })
   return mapCorte(data.data)
 }
 
 export async function getHistorialCortes(cajaId: string): Promise<CorteCaja[]> {
-  const { data } = await api.get<ApiResponse<CorteApi[]>>(`/caja/cajas/${cajaId}/cortes/`)
+  const { data } = await api.get(`/caja/cajas/${cajaId}/cortes/`)
 
-  return data.data.map(mapCorte)
+  return unwrapList<CorteApi>(data).map(mapCorte)
 }

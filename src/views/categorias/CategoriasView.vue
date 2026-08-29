@@ -132,7 +132,7 @@ onMounted(loadCategorias)
         <p class="mt-1 text-sm text-gray-500">Organiza los productos por categoría.</p>
       </div>
 
-      <BaseButton @click="openNew">
+      <BaseButton class="mobile-full-button sm:w-auto" @click="openNew">
         <PlusIcon class="h-4 w-4" />
         Nueva categoría
       </BaseButton>
@@ -146,7 +146,7 @@ onMounted(loadCategorias)
 
     <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[650px] text-left text-sm">
+        <table class="mobile-stack-table w-full min-w-[650px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
               <th class="px-5 py-4">Nombre</th>
@@ -157,13 +157,13 @@ onMounted(loadCategorias)
 
           <tbody class="divide-y divide-gray-100">
             <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
-              <td class="px-5 py-4 font-medium text-gray-900">
+              <td data-label="Nombre" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.nombre }}
               </td>
-              <td class="px-5 py-4 text-gray-600">
+              <td data-label="Descripción" class="px-5 py-4 text-gray-600">
                 {{ item.descripcion || 'Sin descripción' }}
               </td>
-              <td class="px-5 py-4">
+              <td data-label="Acciones" class="px-5 py-4">
                 <div class="flex justify-end gap-1">
                   <button
                     type="button"
@@ -215,7 +215,7 @@ onMounted(loadCategorias)
           />
         </div>
 
-        <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
+        <div class="mobile-action-row flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row">
           <BaseButton variant="secondary" @click="modalOpen = false"> Cancelar </BaseButton>
           <BaseButton type="submit" :loading="saving">Guardar</BaseButton>
         </div>

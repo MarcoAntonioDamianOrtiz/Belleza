@@ -1,5 +1,7 @@
 import api from './axios'
 
+import { unwrapList } from '@/utils/apiResponse'
+
 import type {
   MovimientoInventario,
   MovimientoPayload,
@@ -29,8 +31,8 @@ function mapMovimiento(item: MovimientoApi): MovimientoInventario {
 }
 
 export async function getMovimientosInventario(): Promise<MovimientoInventario[]> {
-  const { data } = await api.get<MovimientoApi[]>('/inventario/')
-  return data
+  const { data } = await api.get('/inventario/')
+  return unwrapList<MovimientoApi>(data)
     .map(mapMovimiento)
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
 }
@@ -46,6 +48,10 @@ export async function registrarSalida(payload: MovimientoPayload): Promise<Movim
 }
 
 export async function registrarAjuste(payload: MovimientoPayload): Promise<MovimientoResultado> {
-  const { data } = await api.post<MovimientoResultado>('/inventario/ajuste/', payload)
+  const { data } = await api.post<MovimientoResultado>('/inventario/ajuste/', {
+    variante_id: payload.variante_id,
+    stock_nuevo: payload.cantidad,
+    observaciones: payload.observaciones,
+  })
   return data
 }

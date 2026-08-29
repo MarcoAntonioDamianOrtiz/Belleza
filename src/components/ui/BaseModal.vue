@@ -26,20 +26,20 @@ const widths = {
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-50 overflow-y-auto bg-black/30 px-4 py-4 sm:px-6 sm:py-8"
+      class="fixed inset-0 z-50 overflow-hidden bg-black/30 p-2 sm:p-6 lg:p-8"
       @click.self="emit('close')"
     >
-      <div class="flex min-h-full items-start justify-center sm:items-center">
+      <div class="flex h-full min-h-0 items-start justify-center sm:items-center">
         <div
           :class="[
-            'my-auto w-full overflow-visible rounded-2xl bg-white shadow-xl',
+            'flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-xl bg-white shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl lg:max-h-[calc(100dvh-4rem)]',
             widths[maxWidth],
           ]"
           role="dialog"
           aria-modal="true"
         >
           <header
-            class="flex items-center justify-between border-b border-gray-100 px-5 py-4 sm:px-6 sm:py-5"
+            class="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 py-4 sm:px-6 sm:py-5"
           >
             <h2 class="text-base font-semibold text-gray-900 sm:text-lg">
               {{ title }}
@@ -55,7 +55,7 @@ const widths = {
             </button>
           </header>
 
-          <div class="p-5 sm:p-6">
+          <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 [-webkit-overflow-scrolling:touch] sm:p-6">
             <slot />
           </div>
         </div>

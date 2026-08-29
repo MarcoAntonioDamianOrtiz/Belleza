@@ -109,7 +109,7 @@ onMounted(loadData)
 
     <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[900px] text-left text-sm">
+        <table class="mobile-stack-table w-full min-w-[900px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
               <th class="px-5 py-4">Producto</th>
@@ -124,19 +124,19 @@ onMounted(loadData)
 
           <tbody class="divide-y divide-gray-100">
             <tr v-for="item in filteredInventory" :key="item.id" class="hover:bg-gray-50">
-              <td class="px-5 py-4 font-medium text-gray-900">
+              <td data-label="Producto" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.producto }}
               </td>
-              <td class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
-              <td class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
-              <td class="px-5 py-4 font-mono text-xs text-gray-600">
+              <td data-label="Variante" class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
+              <td data-label="SKU" class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
+              <td data-label="Código" class="px-5 py-4 font-mono text-xs text-gray-600">
                 {{ item.codigoBarras }}
               </td>
-              <td class="px-5 py-4 font-medium text-gray-900">
+              <td data-label="Stock" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.stock }}
               </td>
-              <td class="px-5 py-4 text-gray-600">{{ item.stockMinimo }}</td>
-              <td class="px-5 py-4">
+              <td data-label="Mínimo" class="px-5 py-4 text-gray-600">{{ item.stockMinimo }}</td>
+              <td data-label="Estado" class="px-5 py-4">
                 <StatusChip
                   :status="getStockStatus(item).status"
                   :label="getStockStatus(item).label"

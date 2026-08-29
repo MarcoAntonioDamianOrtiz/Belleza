@@ -1,6 +1,6 @@
 import api from './axios'
 
-import type { MetodoPagoCatalogo, MetodoPagoPayload } from '@/types/metodoPago'
+import type { MetodoPagoCatalogo } from '@/types/metodoPago'
 import type { ApiResponse } from '@/types/api'
 
 interface MetodoPagoApi {
@@ -37,16 +37,11 @@ export async function getMetodosPagoActivos(): Promise<MetodoPagoCatalogo[]> {
   }))
 }
 
-export async function createMetodoPago(payload: MetodoPagoPayload): Promise<string> {
-  const { data } = await api.post<ApiResponse<{ id: string }>>('/metodos-pago/', payload)
-  return data.data.id
-}
-
 export async function updateMetodoPago(
   id: string,
-  payload: MetodoPagoPayload,
+  activo: boolean,
 ): Promise<MetodoPagoCatalogo> {
-  const { data } = await api.put<ApiResponse<MetodoPagoApi>>(`/metodos-pago/${id}/`, payload)
+  const { data } = await api.put<ApiResponse<MetodoPagoApi>>(`/metodos-pago/${id}/`, { activo })
   return mapMetodo(data.data)
 }
 

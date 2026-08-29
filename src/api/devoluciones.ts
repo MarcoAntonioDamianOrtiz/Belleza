@@ -1,6 +1,6 @@
 import api from './axios'
 
-import { unwrapData } from '@/utils/apiResponse'
+import { unwrapData, unwrapList } from '@/utils/apiResponse'
 
 import type {
   Devolucion,
@@ -11,95 +11,79 @@ import type {
 
 interface DevolucionApi {
   id: string
-  venta_id?: string
-  venta?: string | { id?: string; folio?: string }
-  venta_folio?: string
-  usuario?: string | { nombre?: string }
+  venta: string
+  usuario: string
+  metodo_pago_reembolso?: string | null
   tipo: TipoDevolucion
   motivo: string
   estado: EstadoDevolucion
+  total_devuelto: string | number
   fecha: string
-  productos?: Array<{
-    variante_id?: string
-    variante?: string | { id?: string; nombre?: string; producto?: string }
-    producto?: string
-    cantidad: number
-  }>
   detalles?: Array<{
-    variante_id?: string
-    variante?: string | { id?: string; nombre?: string; producto?: string }
-    producto?: string
+    id: string
+    producto: string
+    variante: string
     cantidad: number
+    precio_original: string | number
+    subtotal: string | number
   }>
 }
 
 function mapDevolucion(item: DevolucionApi): Devolucion {
-  const ventaObject = typeof item.venta === 'object' && item.venta !== null ? item.venta : null
-
-  const usuario =
-    typeof item.usuario === 'object'
-      ? (item.usuario?.nombre ?? 'Usuario')
-      : (item.usuario ?? 'Usuario')
-
-  const productos = item.productos ?? item.detalles ?? []
-
   return {
     id: item.id,
-    ventaId: item.venta_id ?? ventaObject?.id ?? (typeof item.venta === 'string' ? item.venta : ''),
-    ventaFolio:
-      item.venta_folio ?? ventaObject?.folio ?? (typeof item.venta === 'string' ? item.venta : '—'),
-    usuario,
+    ventaFolio: item.venta,
+    usuario: item.usuario,
+    metodoPagoReembolso: item.metodo_pago_reembolso ?? 'No especificado',
     tipo: item.tipo,
     motivo: item.motivo,
     estado: item.estado,
+    totalDevuelto: Number(item.total_devuelto ?? 0),
     fecha: item.fecha,
-    productos: productos.map((detail) => {
-      const variantObject =
-        typeof detail.variante === 'object' && detail.variante !== null ? detail.variante : null
-
-      return {
-        varianteId: detail.variante_id ?? variantObject?.id ?? '',
-        producto: detail.producto ?? variantObject?.producto ?? 'Producto',
-        variante:
-          variantObject?.nombre ??
-          (typeof detail.variante === 'string' ? detail.variante : 'Variante'),
-        cantidad: Number(detail.cantidad),
-      }
-    }),
+    productos: (item.detalles ?? []).map((detail) => ({
+      id: detail.id,
+      producto: detail.producto,
+      variante: detail.variante,
+      cantidad: Number(detail.cantidad),
+      precioOriginal: Number(detail.precio_original),
+      subtotal: Number(detail.subtotal),
+    })),
   }
 }
 
 export async function getDevoluciones(): Promise<Devolucion[]> {
-  const { data } = await api.get<DevolucionApi[] | { data: DevolucionApi[] }>('/devoluciones/')
-
-  return unwrapData(data).map(mapDevolucion)
+  const { data } = await api.get('/devoluciones/')
+  return unwrapList<DevolucionApi>(data).map(mapDevolucion)
 }
 
 export async function getDevolucion(id: string): Promise<Devolucion> {
-  const { data } = await api.get<DevolucionApi | { data: DevolucionApi }>(`/devoluciones/${id}/`)
-
-  return mapDevolucion(unwrapData(data))
+  const { data } = await api.get(`/devoluciones/${id}/`)
+  return mapDevolucion(unwrapData<DevolucionApi>(data))
 }
 
-export async function createDevolucion(payload: DevolucionPayload): Promise<unknown> {
+export async function createDevolucion(payload: DevolucionPayload): Promise<Devolucion> {
   const { data } = await api.post('/devoluciones/', payload)
-  return data
+  return mapDevolucion(unwrapData<DevolucionApi>(data))
 }
 
 export async function updateDevolucion(
   id: string,
-  payload: Partial<{ estado: EstadoDevolucion; motivo: string }>,
-): Promise<unknown> {
+  payload: Partial<{
+    tipo: TipoDevolucion
+    motivo: string
+    metodo_pago_reembolso_id: string
+  }>,
+): Promise<Devolucion> {
   const { data } = await api.put(`/devoluciones/${id}/`, payload)
-  return data
+  return mapDevolucion(unwrapData<DevolucionApi>(data))
 }
 
-export async function aprobarDevolucion(id: string): Promise<unknown> {
+export async function aprobarDevolucion(id: string): Promise<Devolucion> {
   const { data } = await api.post(`/devoluciones/${id}/aprobar/`)
-  return data
+  return mapDevolucion(unwrapData<DevolucionApi>(data))
 }
 
-export async function rechazarDevolucion(id: string): Promise<unknown> {
+export async function rechazarDevolucion(id: string): Promise<Devolucion> {
   const { data } = await api.post(`/devoluciones/${id}/rechazar/`)
-  return data
+  return mapDevolucion(unwrapData<DevolucionApi>(data))
 }

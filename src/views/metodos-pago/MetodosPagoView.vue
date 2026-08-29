@@ -1,22 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
-import {
-  createMetodoPago,
-  deleteMetodoPago,
-  getMetodosPago,
-  updateMetodoPago,
-} from '@/api/metodosPago'
+import { deleteMetodoPago, getMetodosPago, updateMetodoPago } from '@/api/metodosPago'
 import { getFriendlyError } from '@/utils/apiError'
 import { showError, showSuccess } from '@/utils/notifications'
 
@@ -53,12 +47,6 @@ async function loadData() {
   }
 }
 
-function openNew() {
-  selected.value = null
-  form.nombre = ''
-  form.activo = true
-  modalOpen.value = true
-}
 
 function openEdit(item: MetodoPagoCatalogo) {
   selected.value = item
@@ -68,29 +56,17 @@ function openEdit(item: MetodoPagoCatalogo) {
 }
 
 async function save() {
-  if (!form.nombre.trim()) return
+  if (!selected.value) return
 
   saving.value = true
 
   try {
-    if (selected.value) {
-      await updateMetodoPago(selected.value.id, {
-        nombre: form.nombre.trim(),
-        activo: form.activo,
-      })
-      await showSuccess('Método de pago actualizado correctamente.')
-    } else {
-      await createMetodoPago({
-        nombre: form.nombre.trim(),
-        activo: true,
-      })
-      await showSuccess('Método de pago creado correctamente.')
-    }
-
+    await updateMetodoPago(selected.value.id, form.activo)
+    await showSuccess('Método de pago actualizado correctamente.')
     modalOpen.value = false
     await loadData()
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible guardar el método de pago.'))
+    await showError(getFriendlyError(error, 'No fue posible actualizar el método de pago.'))
   } finally {
     saving.value = false
   }
@@ -134,10 +110,6 @@ onMounted(loadData)
         </p>
       </div>
 
-      <BaseButton @click="openNew">
-        <PlusIcon class="h-4 w-4" />
-        Nuevo método
-      </BaseButton>
     </div>
 
     <div class="mb-5 max-w-xl">
@@ -148,7 +120,7 @@ onMounted(loadData)
 
     <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[650px] text-left text-sm">
+        <table class="mobile-stack-table w-full min-w-[650px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
               <th class="px-5 py-4">Nombre</th>
@@ -159,16 +131,16 @@ onMounted(loadData)
 
           <tbody class="divide-y divide-gray-100">
             <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
-              <td class="px-5 py-4 font-medium text-gray-900">
+              <td data-label="Nombre" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.nombre }}
               </td>
-              <td class="px-5 py-4">
+              <td data-label="Estado" class="px-5 py-4">
                 <StatusChip
                   :status="item.activo ? 'success' : 'danger'"
                   :label="item.activo ? 'Activo' : 'Inactivo'"
                 />
               </td>
-              <td class="px-5 py-4">
+              <td data-label="Acciones" class="px-5 py-4">
                 <div class="flex justify-end gap-1">
                   <button
                     type="button"
@@ -202,15 +174,18 @@ onMounted(loadData)
 
     <BaseModal
       :open="modalOpen"
-      :title="selected ? 'Editar método de pago' : 'Nuevo método de pago'"
+      title="Estado del método de pago"
       max-width="md"
       @close="modalOpen = false"
     >
       <form class="space-y-5" @submit.prevent="save">
-        <BaseInput v-model="form.nombre" label="Nombre" placeholder="Ej. Efectivo" required />
+        <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+          <p class="text-xs uppercase text-gray-400">Método</p>
+          <p class="mt-1 font-medium text-gray-900">{{ form.nombre }}</p>
+          <p class="mt-1 text-xs text-gray-500">Puedes activar o desactivar este método de pago.</p>
+        </div>
 
         <label
-          v-if="selected"
           class="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-4"
         >
           <input v-model="form.activo" type="checkbox" class="h-4 w-4 accent-[#C56B86]" />

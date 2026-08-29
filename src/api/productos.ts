@@ -1,10 +1,13 @@
 import api from './axios'
 
+import { unwrapData, unwrapList } from '@/utils/apiResponse'
+
 import type { ProductoPayload } from '@/types/producto'
 
 export interface ProductoApi {
   id: string
   categoria: string
+  categoria_nombre?: string
   nombre: string
   descripcion?: string | null
   activo: boolean
@@ -13,18 +16,18 @@ export interface ProductoApi {
 }
 
 export async function getProductos(): Promise<ProductoApi[]> {
-  const { data } = await api.get<ProductoApi[]>('/productos/')
-  return data
+  const { data } = await api.get('/productos/')
+  return unwrapList<ProductoApi>(data)
 }
 
 export async function createProducto(payload: ProductoPayload): Promise<ProductoApi> {
-  const { data } = await api.post<ProductoApi>('/productos/', payload)
-  return data
+  const { data } = await api.post('/productos/', payload)
+  return unwrapData<ProductoApi>(data)
 }
 
 export async function updateProducto(id: string, payload: ProductoPayload): Promise<ProductoApi> {
-  const { data } = await api.put<ProductoApi>(`/productos/${id}/`, payload)
-  return data
+  const { data } = await api.put(`/productos/${id}/`, payload)
+  return unwrapData<ProductoApi>(data)
 }
 
 export async function deleteProducto(id: string): Promise<void> {

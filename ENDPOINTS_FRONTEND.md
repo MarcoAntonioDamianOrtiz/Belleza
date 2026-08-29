@@ -1,94 +1,73 @@
-# Rutas consumidas por el frontend
+# Contrato frontend ↔ backend (backend recibido 2026-08-28)
 
-La URL base se toma de `VITE_API_URL`.
+Este archivo documenta cómo consume **belleza** el backend recibido. El frontend se adapta al backend; no se modifica Django.
 
-## Autenticación
+## Formatos de respuesta
 
-```text
-POST /auth/login/
-POST /auth/refresh/
-POST /auth/logout/
-GET  /auth/me/
-```
+El backend mezcla tres formatos de listados y el frontend los normaliza con `unwrapList()`:
 
-## Catálogo y usuarios
+- `{ success, count, next, previous, data: [...] }`
+- `{ count, next, previous, results: [...] }`
+- `{ success, data: [...] }`
 
-```text
-GET/POST       /usuarios/
-PATCH/DELETE   /usuarios/{id}/
+## Rutas usadas
 
-GET/POST       /categorias/
-PUT/DELETE     /categorias/{id}/
+- Autenticación: `/auth/login/`, `/auth/refresh/`, `/auth/logout/`, `/auth/me/`
+- Usuarios: `/usuarios/`, `/usuarios/crear-admin/`
+- Categorías: `/categorias/`
+- Productos: `/productos/`
+- Variantes: `/variantes/`, `/variantes/codigo/{codigo}/`
+- Inventario: `/inventario/`, `/inventario/entrada/`, `/inventario/salida/`, `/inventario/ajuste/`
+- Empresa: `/empresa`
+- Métodos de pago: `/metodos-pago/`, `/metodos-pago/activos/`
+- Cajas: `/cajas/`, `/cajas/activas/`
+- Corte: `/caja/abrir/`, `/caja/cerrar/`, `/caja/corte/activo/?caja_id={uuid}`, `/caja/cajas/{uuid}/cortes/`
+- Ventas: `/ventas/`, `/ventas/{id}/`, `/ventas/{id}/cancelar/`, `/ventas/{id}/ticket/`
+- Devoluciones: `/devoluciones/`, `/devoluciones/{id}/aprobar/`, `/devoluciones/{id}/rechazar/`
+- Garantías: `/garantias/`, `/garantias/{id}/aprobar/`, `/garantias/{id}/rechazar/`, `/garantias/{id}/finalizar/`
+- Bitácora: `/bitacora/`
+- Reportes: `/reportes/ventas/`, `/reportes/productos/`, `/reportes/inventario/`, `/reportes/stock-bajo/`, `/reportes/cortes/`, `/reportes/devoluciones/`, `/reportes/garantias/`, `/reportes/movimientos/`
 
-GET/POST       /productos/
-PUT/DELETE     /productos/{id}/
+## Adaptaciones importantes
 
-GET/POST       /variantes/
-PUT/DELETE     /variantes/{id}/
-GET            /variantes/codigo/{codigo}/
-```
+### Usuarios
 
-## Inventario y empresa
+`GET /usuarios/` solo expone `nombre`, `apellido`, `usuario` y `email`. Por eso el frontend lista únicamente esos campos y no inventa ID, rol o estado. Se permiten las operaciones que sí soporta el contrato sin necesitar el ID del listado:
 
-```text
-GET  /inventario/
-POST /inventario/entrada/
-POST /inventario/salida/
-POST /inventario/ajuste/
+- Crear empleado: `POST /usuarios/`
+- Crear administrador: `POST /usuarios/crear-admin/`
 
-GET/POST/PUT /empresa
-```
+El backend asigna automáticamente rol de empleado y estado activo al usuario normal.
 
-## Métodos de pago y caja
+### Métodos de pago
 
-```text
-GET/POST       /metodos-pago/
-PUT/DELETE     /metodos-pago/{id}/
-GET            /metodos-pago/activos/
+El catálogo es fijo. El frontend no ofrece crear ni renombrar métodos. Solo permite activar/desactivar, porque `PUT /metodos-pago/{id}/` acepta únicamente `activo`.
 
-GET/POST       /cajas/
-GET            /cajas/activas/
+### Inventario
 
-POST           /caja/abrir/
-POST           /caja/cerrar/
-GET            /caja/corte/activo/
-GET            /caja/cajas/{cajaId}/cortes/
-```
+El endpoint de ajuste recibe `stock_nuevo`, no `cantidad`. La capa API traduce el valor del formulario al contrato del backend.
 
-## Ventas y tickets
+### Devoluciones
 
-```text
-GET/POST       /ventas/
-GET            /ventas/{id}/
-POST           /ventas/{id}/cancelar/
-GET            /ventas/{id}/ticket/
-GET            /tickets/reimprimir/{id}/
-```
+La creación usa:
 
-Si los endpoints de ticket todavía no están disponibles, la interfaz utiliza el detalle de la venta para permitir visualizar e imprimir el comprobante.
+- `venta_id`
+- `metodo_pago_reembolso_id`
+- `tipo`
+- `motivo`
+- `productos[].detalle_venta_id`
+- `productos[].cantidad`
 
-## Garantías, devoluciones, reportes y bitácora
+El frontend usa el `detalle_id` que devuelve `GET /ventas/{id}/`.
 
-```text
-GET/POST       /garantias/
-GET/PUT        /garantias/{id}/
-POST           /garantias/{id}/aprobar/
-POST           /garantias/{id}/rechazar/
-POST           /garantias/{id}/finalizar/
+### Garantías
 
-GET/POST       /devoluciones/
-GET/PUT        /devoluciones/{id}/
-POST           /devoluciones/{id}/aprobar/
-POST           /devoluciones/{id}/rechazar/
+La creación usa `venta_id`, `variante_id`, `cantidad` y `motivo`. Para aprobar:
 
-GET            /reportes/ventas/
-GET            /reportes/inventario/
-GET            /reportes/stock-bajo/
-GET            /reportes/cortes/
-GET            /reportes/productos/
-GET            /reportes/devoluciones/
-GET            /reportes/garantias/
-GET            /reportes/movimientos/
+- `REEMPLAZO`
+- `CAMBIO_PRODUCTO` (requiere `variante_nueva_id`)
+- `REPARACION`
 
-GET            /bitacora/
-```
+### Reportes
+
+Los filtros de fecha del backend son `fecha_inicio` y `fecha_fin`.

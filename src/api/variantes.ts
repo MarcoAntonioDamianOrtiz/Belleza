@@ -1,5 +1,7 @@
 import api from './axios'
 
+import { unwrapData, unwrapList } from '@/utils/apiResponse'
+
 import type { Variante, VariantePayload } from '@/types/variante'
 
 interface VarianteApi {
@@ -39,24 +41,24 @@ function mapVariante(item: VarianteApi): Variante {
 }
 
 export async function getVariantes(): Promise<Variante[]> {
-  const { data } = await api.get<VarianteApi[]>('/variantes/')
-  return data.map(mapVariante)
+  const { data } = await api.get('/variantes/')
+  return unwrapList<VarianteApi>(data).map(mapVariante)
 }
 
 export async function getVarianteByCode(codigo: string): Promise<Variante> {
-  const { data } = await api.get<VarianteApi>(`/variantes/codigo/${encodeURIComponent(codigo)}/`)
+  const { data } = await api.get(`/variantes/codigo/${encodeURIComponent(codigo)}/`)
 
-  return mapVariante(data)
+  return mapVariante(unwrapData<VarianteApi>(data))
 }
 
 export async function createVariante(payload: VariantePayload): Promise<Variante> {
-  const { data } = await api.post<VarianteApi>('/variantes/', payload)
-  return mapVariante(data)
+  const { data } = await api.post('/variantes/', payload)
+  return mapVariante(unwrapData<VarianteApi>(data))
 }
 
 export async function updateVariante(id: string, payload: VariantePayload): Promise<Variante> {
-  const { data } = await api.put<VarianteApi>(`/variantes/${id}/`, payload)
-  return mapVariante(data)
+  const { data } = await api.put(`/variantes/${id}/`, payload)
+  return mapVariante(unwrapData<VarianteApi>(data))
 }
 
 export async function deleteVariante(id: string): Promise<void> {

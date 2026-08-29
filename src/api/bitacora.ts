@@ -1,6 +1,6 @@
 import api from './axios'
 
-import { unwrapData } from '@/utils/apiResponse'
+import { unwrapList } from '@/utils/apiResponse'
 
 import type { BitacoraRegistro } from '@/types/bitacora'
 
@@ -14,9 +14,9 @@ interface BitacoraApi {
 }
 
 export async function getBitacora(): Promise<BitacoraRegistro[]> {
-  const { data } = await api.get<BitacoraApi[] | { data: BitacoraApi[] }>('/bitacora/')
+  const { data } = await api.get('/bitacora/')
 
-  return unwrapData(data).map((item) => ({
+  return unwrapList<BitacoraApi>(data).map((item) => ({
     id: item.id,
     modulo: item.modulo,
     accion: item.accion,

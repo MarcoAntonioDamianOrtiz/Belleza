@@ -61,3 +61,90 @@ button {
 .search-input::-webkit-search-cancel-button:hover {
   opacity: 0.7;
 }
+
+
+/* ========================================
+  PHONE + TABLET RESPONSIVE TABLES
+======================================== */
+
+@media (max-width: 1023px) {
+  .mobile-stack-table {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .mobile-stack-table thead { display: none; }
+
+  .mobile-stack-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .mobile-stack-table tbody > tr {
+    display: block;
+    overflow: hidden;
+    border: 1px solid #ececec;
+    border-radius: 0.875rem;
+    background: #fff;
+  }
+
+  .mobile-stack-table tbody > tr:hover { background: #fff; }
+
+  .mobile-stack-table td {
+    display: grid;
+    grid-template-columns: minmax(6.75rem, 38%) minmax(0, 1fr);
+    align-items: start;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: none !important;
+    padding: 0.7rem 0.9rem !important;
+    border-bottom: 1px solid #f3f4f6;
+    white-space: normal !important;
+    text-align: left !important;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-stack-table td:last-child { border-bottom: 0; }
+
+  .mobile-stack-table td::before {
+    content: attr(data-label);
+    color: #6b7280;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.25rem;
+    text-transform: uppercase;
+  }
+
+  .mobile-stack-table td[data-label='Acciones'] > div {
+    justify-content: flex-start !important;
+    flex-wrap: wrap;
+  }
+
+  .mobile-stack-table td[colspan] {
+    display: block;
+    padding: 2rem 1rem !important;
+    text-align: center !important;
+  }
+
+  .mobile-stack-table td[colspan]::before { display: none; }
+
+  .mobile-stack-table .truncate {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+  }
+}
+
+/* Phone-only layout helpers. */
+@media (max-width: 639px) {
+  .mobile-full-button { width: 100%; }
+
+  .mobile-action-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mobile-action-row > * { width: 100%; }
+}

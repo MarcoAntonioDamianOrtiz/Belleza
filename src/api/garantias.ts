@@ -1,9 +1,8 @@
 import api from './axios'
 
-import { unwrapData } from '@/utils/apiResponse'
+import { unwrapData, unwrapList } from '@/utils/apiResponse'
 
 import type {
-  EstadoGarantia,
   Garantia,
   GarantiaPayload,
   ResolucionGarantia,
@@ -11,15 +10,15 @@ import type {
 
 interface GarantiaApi {
   id: string
-  venta_id?: string
-  venta?: string | { id?: string; folio?: string }
-  venta_folio?: string
-  usuario?: string | { nombre?: string }
-  variante_id?: string
-  variante?: string | { id?: string; nombre?: string; producto?: string }
-  producto?: string
+  venta: string
+  usuario: string
+  producto: string
+  variante: string
+  variante_nueva?: string | null
+  cantidad: number
+  garantia_meses: number
   motivo: string
-  estado: EstadoGarantia
+  estado: Garantia['estado']
   resolucion?: ResolucionGarantia | null
   observaciones?: string | null
   fecha: string
@@ -27,26 +26,15 @@ interface GarantiaApi {
 }
 
 function mapGarantia(item: GarantiaApi): Garantia {
-  const ventaObject = typeof item.venta === 'object' && item.venta !== null ? item.venta : null
-
-  const varianteObject =
-    typeof item.variante === 'object' && item.variante !== null ? item.variante : null
-
-  const usuario =
-    typeof item.usuario === 'object'
-      ? (item.usuario?.nombre ?? 'Usuario')
-      : (item.usuario ?? 'Usuario')
-
   return {
     id: item.id,
-    ventaId: item.venta_id ?? ventaObject?.id ?? (typeof item.venta === 'string' ? item.venta : ''),
-    ventaFolio:
-      item.venta_folio ?? ventaObject?.folio ?? (typeof item.venta === 'string' ? item.venta : '—'),
-    usuario,
-    varianteId: item.variante_id ?? varianteObject?.id ?? '',
-    producto: item.producto ?? varianteObject?.producto ?? 'Producto',
-    variante:
-      varianteObject?.nombre ?? (typeof item.variante === 'string' ? item.variante : 'Variante'),
+    ventaFolio: item.venta,
+    usuario: item.usuario,
+    producto: item.producto,
+    variante: item.variante,
+    varianteNueva: item.variante_nueva ?? null,
+    cantidad: Number(item.cantidad),
+    garantiaMeses: Number(item.garantia_meses ?? 0),
     motivo: item.motivo,
     estado: item.estado,
     resolucion: item.resolucion ?? null,
@@ -57,51 +45,43 @@ function mapGarantia(item: GarantiaApi): Garantia {
 }
 
 export async function getGarantias(): Promise<Garantia[]> {
-  const { data } = await api.get<GarantiaApi[] | { data: GarantiaApi[] }>('/garantias/')
-
-  return unwrapData(data).map(mapGarantia)
+  const { data } = await api.get('/garantias/')
+  return unwrapList<GarantiaApi>(data).map(mapGarantia)
 }
 
 export async function getGarantia(id: string): Promise<Garantia> {
-  const { data } = await api.get<GarantiaApi | { data: GarantiaApi }>(`/garantias/${id}/`)
-
-  return mapGarantia(unwrapData(data))
+  const { data } = await api.get(`/garantias/${id}/`)
+  return mapGarantia(unwrapData<GarantiaApi>(data))
 }
 
-export async function createGarantia(payload: GarantiaPayload): Promise<unknown> {
+export async function createGarantia(payload: GarantiaPayload): Promise<Garantia> {
   const { data } = await api.post('/garantias/', payload)
-  return data
+  return mapGarantia(unwrapData<GarantiaApi>(data))
 }
 
-export async function updateGarantia(
-  id: string,
-  payload: Partial<{
-    estado: EstadoGarantia
-    resolucion: ResolucionGarantia
-    observaciones: string
-  }>,
-): Promise<unknown> {
-  const { data } = await api.put(`/garantias/${id}/`, payload)
-  return data
+export async function updateGarantia(id: string, motivo: string): Promise<Garantia> {
+  const { data } = await api.put(`/garantias/${id}/`, { motivo })
+  return mapGarantia(unwrapData<GarantiaApi>(data))
 }
 
 export async function aprobarGarantia(
   id: string,
   payload: {
     resolucion: ResolucionGarantia
+    variante_nueva_id?: string | null
     observaciones?: string
   },
-): Promise<unknown> {
+): Promise<Garantia> {
   const { data } = await api.post(`/garantias/${id}/aprobar/`, payload)
-  return data
+  return mapGarantia(unwrapData<GarantiaApi>(data))
 }
 
-export async function rechazarGarantia(id: string, observaciones = ''): Promise<unknown> {
+export async function rechazarGarantia(id: string, observaciones = ''): Promise<Garantia> {
   const { data } = await api.post(`/garantias/${id}/rechazar/`, { observaciones })
-  return data
+  return mapGarantia(unwrapData<GarantiaApi>(data))
 }
 
-export async function finalizarGarantia(id: string): Promise<unknown> {
-  const { data } = await api.post(`/garantias/${id}/finalizar/`)
-  return data
+export async function finalizarGarantia(id: string, observaciones = ''): Promise<Garantia> {
+  const { data } = await api.post(`/garantias/${id}/finalizar/`, { observaciones })
+  return mapGarantia(unwrapData<GarantiaApi>(data))
 }

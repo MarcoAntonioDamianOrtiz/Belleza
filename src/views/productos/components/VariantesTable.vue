@@ -41,7 +41,7 @@ function stockStatus(variante: Variante) {
 
 <template>
   <div class="overflow-x-auto">
-    <table class="w-full min-w-[1120px] text-left text-sm">
+    <table class="mobile-stack-table w-full min-w-[1120px] text-left text-sm">
       <thead class="border-y border-gray-200 bg-gray-50">
         <tr class="text-xs font-semibold uppercase text-gray-500">
           <th class="px-4 py-3">Variante</th>
@@ -59,23 +59,23 @@ function stockStatus(variante: Variante) {
 
       <tbody class="divide-y divide-gray-100">
         <tr v-for="variante in variantes" :key="variante.id" class="hover:bg-gray-50">
-          <td class="px-4 py-4 font-medium text-gray-900">
+          <td data-label="Variante" class="px-4 py-4 font-medium text-gray-900">
             {{ variante.nombre }}
           </td>
-          <td class="px-4 py-4 text-gray-600">{{ variante.sku }}</td>
-          <td class="px-4 py-4 font-mono text-xs text-gray-600">
+          <td data-label="SKU" class="px-4 py-4 text-gray-600">{{ variante.sku }}</td>
+          <td data-label="Código" class="px-4 py-4 font-mono text-xs text-gray-600">
             {{ variante.codigoBarras }}
           </td>
-          <td class="px-4 py-4 text-gray-600">
+          <td data-label="Costo" class="px-4 py-4 text-gray-600">
             {{ formatCurrency(variante.costo) }}
           </td>
-          <td class="px-4 py-4 font-medium text-gray-900">
+          <td data-label="Menudeo" class="px-4 py-4 font-medium text-gray-900">
             {{ formatCurrency(variante.precioMenudeo) }}
           </td>
-          <td class="px-4 py-4 text-gray-600">
+          <td data-label="Mayoreo" class="px-4 py-4 text-gray-600">
             {{ formatCurrency(variante.precioMayoreo) }}
           </td>
-          <td class="px-4 py-4">
+          <td data-label="Stock" class="px-4 py-4">
             <div class="flex flex-col items-start gap-1">
               <span class="font-medium text-gray-900">
                 {{ variante.stock }}
@@ -86,14 +86,14 @@ function stockStatus(variante: Variante) {
               />
             </div>
           </td>
-          <td class="px-4 py-4 text-gray-600">
+          <td data-label="Mínimo" class="px-4 py-4 text-gray-600">
             {{ variante.stockMinimo }}
           </td>
-          <td class="px-4 py-4 text-gray-600">
+          <td data-label="Garantía" class="px-4 py-4 text-gray-600">
             <span v-if="variante.garantiaMeses"> {{ variante.garantiaMeses }} meses </span>
             <span v-else class="text-gray-400">Sin garantía</span>
           </td>
-          <td class="px-4 py-4">
+          <td data-label="Acciones" class="px-4 py-4">
             <div class="flex justify-end gap-1">
               <button
                 type="button"

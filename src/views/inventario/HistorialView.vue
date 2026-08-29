@@ -174,7 +174,7 @@ onMounted(loadData)
 
       <div class="hidden overflow-hidden rounded-2xl border border-[#ECECEC] bg-white lg:block">
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[950px] text-left text-sm">
+          <table class="mobile-stack-table w-full min-w-[950px] text-left text-sm">
             <thead class="border-b border-gray-200 bg-gray-50">
               <tr class="text-xs font-semibold uppercase text-gray-500">
                 <th class="px-5 py-4">Fecha</th>
@@ -190,27 +190,27 @@ onMounted(loadData)
 
             <tbody class="divide-y divide-gray-100">
               <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
-                <td class="whitespace-nowrap px-5 py-4 text-gray-600">
+                <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                   {{ formatDate(item.fecha) }}
                 </td>
-                <td class="px-5 py-4 font-medium text-gray-900">
+                <td data-label="Producto" class="px-5 py-4 font-medium text-gray-900">
                   {{ item.producto }}
                 </td>
-                <td class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
-                <td class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
-                <td class="px-5 py-4">
+                <td data-label="Variante" class="px-5 py-4 text-gray-600">{{ item.variante }}</td>
+                <td data-label="SKU" class="px-5 py-4 text-gray-600">{{ item.sku }}</td>
+                <td data-label="Tipo" class="px-5 py-4">
                   <StatusChip
                     :status="statusFor(item.tipo).status"
                     :label="statusFor(item.tipo).label"
                   />
                 </td>
-                <td class="px-5 py-4 font-semibold text-gray-900">
+                <td data-label="Cantidad" class="px-5 py-4 font-semibold text-gray-900">
                   {{ quantityLabel(item) }}
                 </td>
-                <td class="px-5 py-4 text-gray-600">
+                <td data-label="Motivo" class="px-5 py-4 text-gray-600">
                   {{ item.observaciones || 'Sin observaciones' }}
                 </td>
-                <td class="px-5 py-4 text-gray-600">{{ item.usuario }}</td>
+                <td data-label="Usuario" class="px-5 py-4 text-gray-600">{{ item.usuario }}</td>
               </tr>
 
               <tr v-if="!filtered.length">

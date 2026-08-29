@@ -5,6 +5,7 @@ import { CheckCircleIcon, EyeIcon, PlusIcon, XCircleIcon } from '@heroicons/vue/
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -20,8 +21,8 @@ import {
   getGarantias,
   rechazarGarantia,
 } from '@/api/garantias'
-import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/formatDate'
+import { useAuthStore } from '@/stores/auth'
 import { getFriendlyError } from '@/utils/apiError'
 import { showError, showSuccess } from '@/utils/notifications'
 import { buildVentaOptions, loadSoldVariantOptions, loadVentaCatalog } from '@/utils/ventaOptions'
@@ -55,6 +56,8 @@ const form = reactive({
   motivo: '',
   resolucion: 'REEMPLAZO' as ResolucionGarantia,
   observaciones: '',
+  cantidad: 1,
+  varianteNuevaId: '',
 })
 
 const ventaOptions = computed(() => buildVentaOptions(catalog.value?.ventas ?? []))
@@ -78,9 +81,19 @@ const statusOptions = [
 
 const resolutionOptions = [
   { label: 'Reemplazo', value: 'REEMPLAZO' },
-  { label: 'Cambio', value: 'CAMBIO' },
+  { label: 'Cambio de producto', value: 'CAMBIO_PRODUCTO' },
   { label: 'Reparación', value: 'REPARACION' },
 ]
+
+const replacementVariantOptions = computed(() =>
+  (catalog.value?.variantes ?? [])
+    .filter((item) => item.activo && item.stock > 0)
+    .map((item) => ({ label: `${item.nombre} · Stock ${item.stock}`, value: item.id })),
+)
+
+const selectedSoldVariant = computed(() =>
+  soldVariants.value.find((item) => item.value === form.varianteId),
+)
 
 const filtered = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -161,6 +174,8 @@ function openCreate() {
   form.varianteId = ''
   form.motivo = ''
   form.observaciones = ''
+  form.cantidad = 1
+  form.varianteNuevaId = ''
   soldVariants.value = []
   formMessage.value = ''
   modalOpen.value = true
@@ -171,6 +186,7 @@ function openApprove(item: Garantia) {
   selected.value = item
   form.resolucion = 'REEMPLAZO'
   form.observaciones = ''
+  form.varianteNuevaId = ''
   modalOpen.value = true
 }
 
@@ -180,8 +196,13 @@ function openDetail(item: Garantia) {
 }
 
 async function submitModal() {
-  if (actionMode.value === 'crear' && (!form.ventaId || !form.varianteId || !form.motivo.trim())) {
-    formMessage.value = 'Completa la venta, el producto y el motivo.'
+  if (actionMode.value === 'crear' && (!form.ventaId || !form.varianteId || !form.motivo.trim() || Number(form.cantidad) < 1)) {
+    formMessage.value = 'Completa la venta, el producto, la cantidad y el motivo.'
+    return
+  }
+
+  if (actionMode.value === 'aprobar' && form.resolucion === 'CAMBIO_PRODUCTO' && !form.varianteNuevaId) {
+    formMessage.value = 'Selecciona el producto que se entregará como cambio.'
     return
   }
 
@@ -193,14 +214,16 @@ async function submitModal() {
       await createGarantia({
         venta_id: form.ventaId,
         variante_id: form.varianteId,
+        cantidad: Number(form.cantidad),
         motivo: form.motivo.trim(),
-        usuario_id: authStore.user?.id,
       })
 
       await showSuccess('Solicitud de garantía registrada correctamente.')
     } else if (selected.value) {
       await aprobarGarantia(selected.value.id, {
         resolucion: form.resolucion,
+        variante_nueva_id:
+          form.resolucion === 'CAMBIO_PRODUCTO' ? form.varianteNuevaId : undefined,
         observaciones: form.observaciones.trim(),
       })
 
@@ -295,7 +318,7 @@ onMounted(loadData)
 
     <div v-else class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1000px] text-left text-sm">
+        <table class="mobile-stack-table w-full min-w-[1000px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
               <th class="px-5 py-4">Fecha</th>
@@ -309,23 +332,23 @@ onMounted(loadData)
 
           <tbody class="divide-y divide-gray-100">
             <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
-              <td class="whitespace-nowrap px-5 py-4 text-gray-600">
+              <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
-              <td class="px-5 py-4 font-medium text-gray-900">
+              <td data-label="Venta" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.ventaFolio }}
               </td>
-              <td class="px-5 py-4 text-gray-600">{{ item.producto }} - {{ item.variante }}</td>
-              <td class="max-w-xs truncate px-5 py-4 text-gray-600">
+              <td data-label="Producto" class="px-5 py-4 text-gray-600">{{ item.producto }} - {{ item.variante }}</td>
+              <td data-label="Motivo" class="max-w-xs truncate px-5 py-4 text-gray-600">
                 {{ item.motivo }}
               </td>
-              <td class="px-5 py-4">
+              <td data-label="Estado" class="px-5 py-4">
                 <StatusChip
                   :status="statusFor(item.estado).status"
                   :label="statusFor(item.estado).label"
                 />
               </td>
-              <td class="px-5 py-4">
+              <td data-label="Acciones" class="px-5 py-4">
                 <div class="flex justify-end gap-1">
                   <button
                     type="button"
@@ -406,6 +429,15 @@ onMounted(loadData)
             required
           />
 
+          <BaseInput
+            v-model="form.cantidad"
+            type="number"
+            min="1"
+            :max="selectedSoldVariant?.cantidadVendida"
+            label="Cantidad"
+            required
+          />
+
           <div>
             <label class="mb-2 block text-sm font-medium text-gray-700">Motivo</label>
             <textarea
@@ -423,6 +455,15 @@ onMounted(loadData)
             v-model="form.resolucion"
             label="Resolución"
             :options="resolutionOptions"
+            required
+          />
+
+          <BaseSelect
+            v-if="form.resolucion === 'CAMBIO_PRODUCTO'"
+            v-model="form.varianteNuevaId"
+            label="Producto de reemplazo"
+            :options="replacementVariantOptions"
+            placeholder="Selecciona la nueva variante"
             required
           />
 

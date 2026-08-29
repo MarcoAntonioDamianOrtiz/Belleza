@@ -124,7 +124,7 @@ function submitForm() {
 
     <p class="text-xs text-gray-500">Si no cuenta con garantía, deja el campo vacío.</p>
 
-    <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
+    <div class="mobile-action-row flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row">
       <BaseButton variant="secondary" @click="emit('cancel')"> Cancelar </BaseButton>
 
       <BaseButton type="submit">

@@ -32,10 +32,13 @@ interface VentaDetalleApi {
   total: string | number
   estado: EstadoVenta
   productos: Array<{
+    detalle_id: string
+    variante_id: string
     producto: string
     variante: string
     cantidad: number
     precio_unitario: string | number
+    descuento?: string | number
     subtotal: string | number
   }>
 }
@@ -77,10 +80,13 @@ export async function getVenta(id: string): Promise<VentaDetalle> {
     total: Number(item.total),
     estado: item.estado,
     productos: item.productos.map((product) => ({
+      detalleId: product.detalle_id,
+      varianteId: product.variante_id,
       producto: product.producto,
       variante: product.variante,
       cantidad: Number(product.cantidad),
       precioUnitario: Number(product.precio_unitario),
+      descuento: Number(product.descuento ?? 0),
       subtotal: Number(product.subtotal),
     })),
   }
@@ -143,10 +149,13 @@ function mapTicket(id: string, response: { data?: TicketApi } | TicketApi): Tick
       total: Number(totals.total ?? 0),
       estado: 'COMPLETADA',
       productos: (item.productos ?? []).map((product) => ({
+        detalleId: '',
+        varianteId: '',
         producto: product.producto ?? 'Producto',
         variante: product.variante ?? 'Variante',
         cantidad: Number(product.cantidad ?? 0),
         precioUnitario: Number(product.precio_unitario ?? product.precio ?? 0),
+        descuento: 0,
         subtotal: Number(product.subtotal ?? 0),
       })),
     },
@@ -168,6 +177,6 @@ export async function getTicketVenta(id: string): Promise<TicketResultado> {
 }
 
 export async function reprintTicketVenta(id: string): Promise<TicketResultado> {
-  const { data } = await api.get<{ data?: TicketApi } | TicketApi>(`/tickets/reimprimir/${id}/`)
+  const { data } = await api.get<{ data?: TicketApi } | TicketApi>(`/ventas/${id}/ticket/`)
   return mapTicket(id, data)
 }

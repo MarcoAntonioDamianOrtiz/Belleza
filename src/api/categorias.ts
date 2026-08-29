@@ -1,5 +1,7 @@
 import api from './axios'
 
+import { unwrapList } from '@/utils/apiResponse'
+
 import type { Categoria, CategoriaPayload } from '@/types/categoria'
 
 interface CategoriaApi {
@@ -23,8 +25,8 @@ function mapCategoria(item: CategoriaApi): Categoria {
 }
 
 export async function getCategorias(): Promise<Categoria[]> {
-  const { data } = await api.get<CategoriaApi[]>('/categorias/')
-  return data.map(mapCategoria)
+  const { data } = await api.get('/categorias/')
+  return unwrapList<CategoriaApi>(data).map(mapCategoria)
 }
 
 export async function createCategoria(payload: CategoriaPayload): Promise<Categoria> {

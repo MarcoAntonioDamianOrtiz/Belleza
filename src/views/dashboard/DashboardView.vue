@@ -170,7 +170,7 @@ onMounted(loadData)
           </div>
 
           <div class="overflow-x-auto">
-            <table class="w-full min-w-[650px] text-left text-sm">
+            <table class="mobile-stack-table w-full min-w-[650px] text-left text-sm">
               <thead class="border-b border-gray-200 bg-gray-50">
                 <tr class="text-xs font-semibold uppercase text-gray-500">
                   <th class="px-5 py-4">Folio</th>
@@ -183,20 +183,20 @@ onMounted(loadData)
 
               <tbody class="divide-y divide-gray-100">
                 <tr v-for="sale in recentSales" :key="sale.id">
-                  <td class="px-5 py-4 font-medium text-gray-900">
+                  <td data-label="Folio" class="px-5 py-4 font-medium text-gray-900">
                     {{ sale.folio }}
                   </td>
-                  <td class="px-5 py-4 text-gray-600">
+                  <td data-label="Fecha" class="px-5 py-4 text-gray-600">
                     {{ formatDate(sale.fecha) }}
                   </td>
-                  <td class="px-5 py-4 text-gray-600">{{ sale.usuario }}</td>
-                  <td class="px-5 py-4">
+                  <td data-label="Usuario" class="px-5 py-4 text-gray-600">{{ sale.usuario }}</td>
+                  <td data-label="Estado" class="px-5 py-4">
                     <StatusChip
                       :status="statusFor(sale.estado).status"
                       :label="statusFor(sale.estado).label"
                     />
                   </td>
-                  <td class="px-5 py-4 text-right font-semibold text-gray-900">
+                  <td data-label="Total" class="px-5 py-4 text-right font-semibold text-gray-900">
                     {{ formatCurrency(sale.total) }}
                   </td>
                 </tr>
