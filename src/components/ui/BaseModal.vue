@@ -57,13 +57,13 @@ function dismissKeyboard() {
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-50 overflow-hidden bg-black/30 p-2 sm:p-6 lg:p-8"
+      class="fixed inset-0 z-50 overflow-hidden bg-black/30 p-2 sm:p-5 xl:p-8"
       @click.self="emit('close')"
     >
       <div class="flex h-full min-h-0 items-start justify-center sm:items-center">
         <div
           :class="[
-            'flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-xl bg-white shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl lg:max-h-[calc(100dvh-4rem)]',
+            'flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-xl bg-white shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl xl:max-h-[calc(100dvh-4rem)]',
             widths[maxWidth],
           ]"
           role="dialog"
@@ -80,7 +80,7 @@ function dismissKeyboard() {
               <button
                 v-if="editing"
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-[#B55F79] transition hover:bg-[#FFF5F8] lg:hidden"
+                class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-[#B55F79] transition hover:bg-[#FFF5F8] xl:hidden"
                 aria-label="Ocultar teclado"
                 @pointerdown.prevent="dismissKeyboard"
                 @click="dismissKeyboard"

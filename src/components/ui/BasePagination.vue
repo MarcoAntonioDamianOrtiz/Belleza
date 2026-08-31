@@ -60,7 +60,7 @@ function goToPage(targetPage: number) {
 
     </div>
 
-    <div class="flex items-center justify-center gap-1.5 sm:justify-end">
+    <div class="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end sm:gap-1.5">
       <button
         type="button"
         :disabled="page <= 1"
@@ -72,31 +72,39 @@ function goToPage(targetPage: number) {
         <ChevronLeftIcon class="h-5 w-5" />
       </button>
 
-      <template v-for="item in visiblePages" :key="item">
-        <span
-          v-if="typeof item !== 'number'"
-          class="inline-flex h-10 min-w-7 items-center justify-center px-1 text-sm font-semibold text-gray-400"
-          aria-hidden="true"
-        >
-          …
-        </span>
+      <span
+        class="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-[#E8D9DE] bg-[#FFF7F9] px-3 text-sm font-semibold text-[#A94D6B] sm:hidden"
+      >
+        {{ page }} / {{ normalizedTotalPages }}
+      </span>
 
-        <button
-          v-else
-          type="button"
-          class="inline-flex h-10 min-w-10 items-center justify-center rounded-xl border px-3 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#E9AFC1] focus:ring-offset-2"
-          :class="
-            item === page
-              ? 'border-[#C96886] bg-[#C96886] text-white shadow-md'
-              : 'border-gray-300 bg-white text-gray-700 hover:border-[#C96886] hover:bg-[#FFF4F7] hover:text-[#B65373]'
-          "
-          :aria-current="item === page ? 'page' : undefined"
-          :aria-label="`Ir a la página ${item}`"
-          @click="goToPage(item)"
-        >
-          {{ item }}
-        </button>
-      </template>
+      <div class="hidden items-center gap-1.5 sm:flex">
+        <template v-for="item in visiblePages" :key="item">
+          <span
+            v-if="typeof item !== 'number'"
+            class="inline-flex h-10 min-w-7 items-center justify-center px-1 text-sm font-semibold text-gray-400"
+            aria-hidden="true"
+          >
+            …
+          </span>
+
+          <button
+            v-else
+            type="button"
+            class="inline-flex h-10 min-w-10 items-center justify-center rounded-xl border px-3 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-[#E9AFC1] focus:ring-offset-2"
+            :class="
+              item === page
+                ? 'border-[#C96886] bg-[#C96886] text-white shadow-md'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-[#C96886] hover:bg-[#FFF4F7] hover:text-[#B65373]'
+            "
+            :aria-current="item === page ? 'page' : undefined"
+            :aria-label="`Ir a la página ${item}`"
+            @click="goToPage(item)"
+          >
+            {{ item }}
+          </button>
+        </template>
+      </div>
 
       <button
         type="button"

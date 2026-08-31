@@ -67,7 +67,7 @@ button {
   PHONE + TABLET RESPONSIVE TABLES
 ======================================== */
 
-@media (max-width: 1023px) {
+@media (max-width: 1279px) {
   .mobile-stack-table {
     width: 100% !important;
     min-width: 0 !important;
@@ -469,5 +469,60 @@ html[data-theme='dark'] .bg-blue-50 {
   .sidebar-link > span:first-child {
     height: 1.55rem !important;
     width: 1.55rem !important;
+  }
+}
+
+
+/* ========================================
+  GLOBAL PHONE + TABLET SAFETY
+======================================== */
+
+.app-sidebar-nav {
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-sidebar-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 1279px) {
+  .mobile-stack-table tbody {
+    max-width: 100%;
+  }
+
+  .mobile-stack-table tbody > tr {
+    min-width: 0;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  }
+
+  .mobile-stack-table td > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .mobile-stack-table td a,
+  .mobile-stack-table td button,
+  .mobile-stack-table td span,
+  .mobile-stack-table td p {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 767px) {
+  .tablet-action-stack {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tablet-action-stack > * {
+    width: 100%;
+  }
+
+  .responsive-detail-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

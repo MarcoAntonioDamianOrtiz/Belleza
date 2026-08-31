@@ -89,13 +89,13 @@ const navigationGroups = computed(() => {
 <template>
   <div
     v-if="uiStore.sidebarOpen"
-    class="fixed inset-0 z-30 bg-black/40 backdrop-blur-[1px] lg:hidden"
+    class="fixed inset-0 z-30 bg-black/40 backdrop-blur-[1px] xl:hidden"
     @click="uiStore.closeSidebar"
   />
 
   <aside
     :class="[
-      'app-sidebar fixed inset-y-0 left-0 z-40 flex h-[100dvh] min-h-[100dvh] w-[88vw] max-w-[19rem] flex-col border-r transition-all duration-200 ease-out lg:sticky lg:top-0 lg:h-screen lg:min-h-screen lg:w-64 lg:max-w-none lg:translate-x-0 lg:shadow-none xl:w-72',
+      'app-sidebar fixed inset-y-0 left-0 z-40 flex h-[100dvh] min-h-[100dvh] w-[88vw] max-w-[19rem] flex-col border-r transition-all duration-200 ease-out xl:sticky xl:top-0 xl:h-screen xl:min-h-screen xl:w-72 xl:max-w-none xl:translate-x-0 xl:shadow-none',
       uiStore.sidebarOpen ? 'translate-x-0' : '-translate-x-full',
       uiStore.isDarkMode
         ? 'border-[#262A31] bg-[#111315] text-white shadow-2xl'
@@ -133,7 +133,7 @@ const navigationGroups = computed(() => {
 
       <button
         type="button"
-        class="inline-flex h-9 w-9 items-center justify-center rounded-xl transition lg:hidden"
+        class="inline-flex h-9 w-9 items-center justify-center rounded-xl transition xl:hidden"
         :class="
           uiStore.isDarkMode
             ? 'bg-[#1B1E24] text-gray-300 hover:bg-[#242830] hover:text-white'
@@ -146,7 +146,7 @@ const navigationGroups = computed(() => {
       </button>
     </div>
 
-    <nav class="app-sidebar-nav min-h-0 flex-1 overflow-hidden px-3 py-3">
+    <nav class="app-sidebar-nav min-h-0 flex-1 overflow-y-auto px-3 py-3">
       <div
         v-for="(group, groupIndex) in navigationGroups"
         :key="group.label"

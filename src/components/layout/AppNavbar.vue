@@ -28,12 +28,12 @@ async function handleLogout() {
 
 <template>
   <header
-    class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#ECECEC] bg-white px-3 sm:h-20 sm:px-6"
+    class="sticky top-0 z-20 flex h-16 min-w-0 items-center justify-between gap-2 border-b border-[#ECECEC] bg-white px-3 sm:h-20 sm:px-5 lg:px-6"
   >
-    <div class="flex items-center gap-3">
+    <div class="flex min-w-0 items-center gap-2 sm:gap-3">
       <button
         type="button"
-        class="rounded-xl p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
+        class="rounded-xl p-2 text-gray-500 hover:bg-gray-100 xl:hidden"
         aria-label="Abrir menú"
         @click="uiStore.toggleSidebar"
       >

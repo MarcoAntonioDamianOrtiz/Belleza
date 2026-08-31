@@ -38,12 +38,12 @@ function statusFor(estado: Garantia['estado']) {
 
     <div>
       <dt class="text-xs uppercase text-gray-400">Fecha</dt>
-      <dd class="mt-1 text-gray-700">{{ formatDate(garantia.fecha) }}</dd>
+      <dd class="mt-1 break-words text-gray-700">{{ formatDate(garantia.fecha) }}</dd>
     </div>
 
     <div>
       <dt class="text-xs uppercase text-gray-400">Producto</dt>
-      <dd class="mt-1 text-gray-700">{{ garantia.producto }} - {{ garantia.variante }}</dd>
+      <dd class="mt-1 break-words text-gray-700">{{ garantia.producto }} - {{ garantia.variante }}</dd>
     </div>
 
     <div>
@@ -58,17 +58,17 @@ function statusFor(estado: Garantia['estado']) {
 
     <div class="sm:col-span-2">
       <dt class="text-xs uppercase text-gray-400">Motivo</dt>
-      <dd class="mt-1 text-gray-700">{{ garantia.motivo }}</dd>
+      <dd class="mt-1 break-words text-gray-700">{{ garantia.motivo }}</dd>
     </div>
 
     <div v-if="garantia.resolucion">
       <dt class="text-xs uppercase text-gray-400">Resolución</dt>
-      <dd class="mt-1 text-gray-700">{{ garantia.resolucion }}</dd>
+      <dd class="mt-1 break-words text-gray-700">{{ garantia.resolucion }}</dd>
     </div>
 
     <div v-if="garantia.observaciones">
       <dt class="text-xs uppercase text-gray-400">Observaciones</dt>
-      <dd class="mt-1 text-gray-700">{{ garantia.observaciones }}</dd>
+      <dd class="mt-1 break-words text-gray-700">{{ garantia.observaciones }}</dd>
     </div>
   </dl>
 </template>

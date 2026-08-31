@@ -84,7 +84,7 @@ function submitForm() {
       />
     </div>
 
-    <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
+    <div class="tablet-action-stack flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:items-center">
       <BaseButton variant="secondary" @click="emit('cancel')"> Cancelar </BaseButton>
 
       <BaseButton type="submit"> Cerrar caja </BaseButton>

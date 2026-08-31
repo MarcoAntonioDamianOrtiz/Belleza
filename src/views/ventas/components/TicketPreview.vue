@@ -100,8 +100,8 @@ function printTicket() {
       </div>
     </div>
 
-    <div class="mt-6 flex justify-end">
-      <BaseButton @click="printTicket">
+    <div class="mt-6 flex justify-stretch sm:justify-end">
+      <BaseButton class="w-full sm:w-auto" @click="printTicket">
         <PrinterIcon class="h-5 w-5" />
         Imprimir ticket
       </BaseButton>

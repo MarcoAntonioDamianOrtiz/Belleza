@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
     <div
       v-if="open"
       role="listbox"
-      class="absolute left-0 right-0 z-[80] mt-2 max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl"
+      class="absolute left-0 right-0 z-[80] mt-2 max-h-[min(15rem,45dvh)] overflow-y-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl"
     >
       <button
         v-for="option in options"

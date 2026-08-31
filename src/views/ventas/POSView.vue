@@ -563,7 +563,7 @@ onMounted(loadData)
         {{ paymentError }}
       </p>
 
-      <div class="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-5">
+      <div class="tablet-action-stack mt-6 flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:items-center">
         <BaseButton variant="secondary" @click="paymentOpen = false"> Cancelar </BaseButton>
         <BaseButton :loading="saving" @click="confirmPayment"> Confirmar venta </BaseButton>
       </div>

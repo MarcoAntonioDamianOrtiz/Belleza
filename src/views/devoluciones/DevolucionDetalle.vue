@@ -39,14 +39,14 @@ function statusFor(estado: Devolucion['estado']) {
 
       <div>
         <dt class="text-xs uppercase text-gray-400">Fecha</dt>
-        <dd class="mt-1 text-gray-700">
+        <dd class="mt-1 break-words text-gray-700">
           {{ formatDate(devolucion.fecha) }}
         </dd>
       </div>
 
       <div>
         <dt class="text-xs uppercase text-gray-400">Tipo</dt>
-        <dd class="mt-1 text-gray-700">{{ devolucion.tipo }}</dd>
+        <dd class="mt-1 break-words text-gray-700">{{ devolucion.tipo }}</dd>
       </div>
 
       <div>
@@ -61,7 +61,7 @@ function statusFor(estado: Devolucion['estado']) {
 
       <div class="sm:col-span-2">
         <dt class="text-xs uppercase text-gray-400">Motivo</dt>
-        <dd class="mt-1 text-gray-700">{{ devolucion.motivo }}</dd>
+        <dd class="mt-1 break-words text-gray-700">{{ devolucion.motivo }}</dd>
       </div>
     </dl>
 
@@ -71,7 +71,7 @@ function statusFor(estado: Devolucion['estado']) {
         <div
           v-for="(item, index) in devolucion.productos"
           :key="`${item.id}-${index}`"
-          class="flex items-center justify-between gap-4 p-4 text-sm"
+          class="responsive-detail-row flex items-center justify-between gap-2 p-4 text-sm sm:gap-4"
         >
           <span class="text-gray-700"> {{ item.producto }} - {{ item.variante }} </span>
           <span class="font-medium text-gray-900">
