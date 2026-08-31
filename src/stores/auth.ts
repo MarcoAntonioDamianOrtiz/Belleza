@@ -21,7 +21,10 @@ export const useAuthStore = defineStore('auth', () => {
   const initialized = ref(false)
 
   const isAuthenticated = computed(() => Boolean(accessToken.value))
-  const isAdmin = computed(() => user.value?.rol === 1)
+  const isAdmin = computed(() => {
+    const role = Number(user.value?.rol)
+    return role === 0 || role === 1
+  })
 
   async function signIn(payload: LoginPayload, remember = false) {
     loading.value = true

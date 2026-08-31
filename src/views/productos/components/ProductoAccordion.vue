@@ -25,7 +25,7 @@ const expanded = ref(false)
 </script>
 
 <template>
-  <article class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
+  <article class="interactive-lift-card overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
     <div class="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
       <button
         type="button"

@@ -15,6 +15,15 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
+
+function handleEnter(event: KeyboardEvent) {
+  if (typeof window === 'undefined') return
+  if (!window.matchMedia('(pointer: coarse)').matches) return
+
+  event.preventDefault()
+  ;(event.currentTarget as HTMLInputElement).blur()
+}
+
 function updateValue(event: Event) {
   emit('update:modelValue', (event.target as HTMLInputElement).value)
 }
@@ -29,9 +38,11 @@ function updateValue(event: Event) {
     <input
       :value="modelValue"
       type="search"
+      enterkeyhint="done"
       :placeholder="placeholder"
       class="search-input w-full rounded-xl border border-[#E5E7EB] bg-white py-2.5 pr-4 pl-11 text-sm outline-none transition placeholder:text-gray-400 focus:border-[#C56B86] focus:ring-2 focus:ring-[#C56B86]/15"
       @input="updateValue"
+      @keydown.enter="handleEnter"
     />
   </div>
 </template>

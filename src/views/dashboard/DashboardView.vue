@@ -182,7 +182,7 @@ onMounted(loadData)
               </thead>
 
               <tbody class="divide-y divide-gray-100">
-                <tr v-for="sale in recentSales" :key="sale.id">
+                <tr v-for="sale in recentSales" :key="sale.id" class="interactive-lift-row">
                   <td data-label="Folio" class="px-5 py-4 font-medium text-gray-900">
                     {{ sale.folio }}
                   </td>

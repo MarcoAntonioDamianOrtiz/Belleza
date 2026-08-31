@@ -1,11 +1,17 @@
+export type UsuarioRol = 0 | 1 | 2
+
 export interface Usuario {
+  id: string
   nombre: string
   apellido: string
   usuario: string
   email: string
+  rol: UsuarioRol
+  rolNombre: string
+  activo: boolean
+  fechaCreacion?: string
+  fechaActualizacion?: string
 }
-
-export type UsuarioTipo = 'empleado' | 'admin'
 
 export interface UsuarioCreatePayload {
   nombre: string
@@ -15,6 +21,18 @@ export interface UsuarioCreatePayload {
   password: string
 }
 
-export interface UsuarioFormData extends UsuarioCreatePayload {
-  tipo: UsuarioTipo
+export interface UsuarioUpdatePayload {
+  nombre: string
+  apellido: string
+  usuario: string
+  email: string
+  password?: string
+}
+
+export interface UsuarioFormData {
+  nombre: string
+  apellido: string
+  usuario: string
+  email: string
+  password: string
 }

@@ -18,3 +18,16 @@
   --radius-md: 12px;
   --radius-lg: 16px;
 }
+
+
+html[data-theme='dark'] {
+  --color-primary: #ef6b94;
+  --color-primary-hover: #ff7da4;
+
+  --color-background: #121417;
+  --color-surface: #181b20;
+  --color-border: #2a2f36;
+
+  --color-text: #f5f6f7;
+  --color-text-secondary: #aeb4bf;
+}

@@ -14,6 +14,7 @@ interface Props {
   max?: string | number
   step?: string | number
   autocomplete?: string
+  enterkeyhint?: 'enter' | 'done' | 'go' | 'next' | 'previous' | 'search' | 'send'
 }
 
 withDefaults(defineProps<Props>(), {
@@ -21,11 +22,21 @@ withDefaults(defineProps<Props>(), {
   type: 'text',
   disabled: false,
   required: false,
+  enterkeyhint: 'done',
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | number]
 }>()
+
+
+function handleEnter(event: KeyboardEvent) {
+  if (typeof window === 'undefined') return
+  if (!window.matchMedia('(pointer: coarse)').matches) return
+
+  event.preventDefault()
+  ;(event.currentTarget as HTMLInputElement).blur()
+}
 
 function handleInput(event: Event) {
   const input = event.target as HTMLInputElement
@@ -63,6 +74,7 @@ function handleInput(event: Event) {
       :max="max"
       :step="step"
       :autocomplete="autocomplete"
+      :enterkeyhint="enterkeyhint"
       v-bind="$attrs"
       :class="[
         'w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition',
@@ -72,6 +84,7 @@ function handleInput(event: Event) {
         error ? 'border-red-400' : 'border-[#E5E7EB]',
       ]"
       @input="handleInput"
+      @keydown.enter="handleEnter"
     />
 
     <p v-if="error" class="mt-1.5 text-xs text-red-500">

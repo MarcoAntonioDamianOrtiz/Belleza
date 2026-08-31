@@ -23,6 +23,10 @@ interface CorteApi {
   efectivo_inicial: string | number
   efectivo_final?: string | number | null
   diferencia?: string | number | null
+  total_ventas?: string | number
+  numero_ventas?: number
+  total_reembolsos?: string | number
+  efectivo_esperado_actual?: string | number
 }
 
 function mapCaja(item: CajaApi): Caja {
@@ -50,6 +54,10 @@ function mapCorte(item: CorteApi): CorteCaja {
         : Number(item.efectivo_final),
     diferencia:
       item.diferencia === null || item.diferencia === undefined ? null : Number(item.diferencia),
+    totalVentas: Number(item.total_ventas ?? 0),
+    numeroVentas: Number(item.numero_ventas ?? 0),
+    totalReembolsos: Number(item.total_reembolsos ?? 0),
+    efectivoEsperadoActual: Number(item.efectivo_esperado_actual ?? item.efectivo_inicial ?? 0),
   }
 }
 
@@ -78,8 +86,6 @@ export async function getCajasActivas(): Promise<Caja[]> {
 export async function createCaja(nombre: string): Promise<string> {
   const { data } = await api.post<ApiResponse<{ id: string }>>('/cajas/', {
     nombre,
-    estado: 'CERRADA',
-    activa: true,
   })
 
   return data.data.id

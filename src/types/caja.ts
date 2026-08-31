@@ -18,6 +18,10 @@ export interface CorteCaja {
   efectivoInicial: number
   efectivoFinal: number | null
   diferencia: number | null
+  totalVentas: number
+  numeroVentas: number
+  totalReembolsos: number
+  efectivoEsperadoActual: number
 }
 
 export interface AbrirCajaPayload {

@@ -13,6 +13,8 @@ import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
+import BaseDateRangeFilter from '@/components/ui/BaseDateRangeFilter.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
@@ -27,15 +29,31 @@ import {
 import { formatCurrency } from '@/utils/formatCurrency'
 import { formatDate } from '@/utils/formatDate'
 import { getFriendlyError } from '@/utils/apiError'
+import { useClientPagination } from '@/composables/useClientPagination'
+import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 import { showError, showSuccess } from '@/utils/notifications'
+import { useAuthStore } from '@/stores/auth'
 
 import type { Caja, CorteCaja } from '@/types/caja'
 
 type ModalMode = 'crear' | 'abrir' | 'cerrar'
 
+const authStore = useAuthStore()
+
 const cajas = ref<Caja[]>([])
-const corteActivo = ref<CorteCaja | null>(null)
+const cortesActivos = ref<Record<string, CorteCaja>>({})
 const historial = ref<CorteCaja[]>([])
+const { dateFrom: historyDateFrom, dateTo: historyDateTo, matchesDate: matchesHistoryDate } =
+  useDateRangeFilter('30days')
+const filteredHistory = computed(() =>
+  historial.value.filter((item) => matchesHistoryDate(item.fechaInicio)),
+)
+const {
+  page: historyPage,
+  totalPages: historyTotalPages,
+  paginatedItems: paginatedHistory,
+  goToPage: goToHistoryPage,
+} = useClientPagination(filteredHistory, 10)
 const selectedCaja = ref<Caja | null>(null)
 const loading = ref(false)
 const saving = ref(false)
@@ -59,21 +77,24 @@ async function loadData() {
   try {
     cajas.value = await getCajas()
 
-    const cajaAbierta = cajas.value.find((item) => item.estado === 'ABIERTA')
-
-    if (cajaAbierta) {
-      try {
-        corteActivo.value = await getCorteActivo(cajaAbierta.id)
-      } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          corteActivo.value = null
-        } else {
+    const cajasAbiertas = cajas.value.filter((item) => item.estado === 'ABIERTA')
+    const cortesEntries = await Promise.all(
+      cajasAbiertas.map(async (caja) => {
+        try {
+          const corte = await getCorteActivo(caja.id)
+          return [caja.id, corte] as const
+        } catch (error) {
+          if (axios.isAxiosError(error) && error.response?.status === 404) {
+            return null
+          }
           throw error
         }
-      }
-    } else {
-      corteActivo.value = null
-    }
+      }),
+    )
+
+    cortesActivos.value = Object.fromEntries(
+      cortesEntries.filter((entry): entry is readonly [string, CorteCaja] => entry !== null),
+    )
 
     if (selectedCaja.value) {
       historial.value = await getHistorialCortes(selectedCaja.value.id)
@@ -170,7 +191,7 @@ onMounted(loadData)
         <p class="mt-1 text-sm text-gray-500">Abre, cierra y consulta los turnos de caja.</p>
       </div>
 
-      <BaseButton @click="openCreate">
+      <BaseButton v-if="authStore.isAdmin" @click="openCreate">
         <PlusIcon class="h-4 w-4" />
         Nueva caja
       </BaseButton>
@@ -183,7 +204,7 @@ onMounted(loadData)
         <article
           v-for="caja in cajas"
           :key="caja.id"
-          class="rounded-2xl border border-[#ECECEC] bg-white p-5"
+          class="interactive-lift-card rounded-2xl border border-[#ECECEC] bg-white p-5"
         >
           <div class="flex items-start justify-between gap-4">
             <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FBEFF3]">
@@ -221,6 +242,55 @@ onMounted(loadData)
               Historial
             </BaseButton>
           </div>
+
+          <div
+            v-if="cortesActivos[caja.id]"
+            class="mt-5 border-t border-gray-100 pt-4"
+          >
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Resumen del turno
+            </p>
+            <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+              <div>
+                <p class="text-[11px] uppercase text-gray-400">Apertura</p>
+                <p class="mt-1 text-xs font-medium text-gray-900">
+                  {{ formatDate(cortesActivos[caja.id]!.fechaInicio) }}
+                </p>
+              </div>
+
+              <div>
+                <p class="text-[11px] uppercase text-gray-400">Efectivo inicial</p>
+                <p class="mt-1 text-xs font-medium text-gray-900">
+                  {{ formatCurrency(cortesActivos[caja.id]!.efectivoInicial) }}
+                </p>
+              </div>
+
+              <div>
+                <p class="text-[11px] uppercase text-gray-400">Ventas</p>
+                <p class="mt-1 text-xs font-semibold text-gray-900">
+                  {{ formatCurrency(cortesActivos[caja.id]!.totalVentas) }}
+                </p>
+                <p class="mt-0.5 text-[11px] text-gray-500">
+                  {{ cortesActivos[caja.id]!.numeroVentas }}
+                  {{ cortesActivos[caja.id]!.numeroVentas === 1 ? 'transacción' : 'transacciones' }}
+                </p>
+              </div>
+
+              <div>
+                <p class="text-[11px] uppercase text-gray-400">Reembolsos</p>
+                <p class="mt-1 text-xs font-semibold text-red-500">
+                  {{ formatCurrency(cortesActivos[caja.id]!.totalReembolsos) }}
+                </p>
+              </div>
+
+              <div class="col-span-2">
+                <p class="text-[11px] uppercase text-gray-400">Efectivo esperado</p>
+                <p class="mt-1 text-sm font-semibold text-gray-900">
+                  {{ formatCurrency(cortesActivos[caja.id]!.efectivoEsperadoActual) }}
+                </p>
+              </div>
+            </div>
+          </div>
         </article>
 
         <div
@@ -231,27 +301,6 @@ onMounted(loadData)
         </div>
       </div>
 
-      <div v-if="corteActivo" class="mt-6 rounded-2xl border border-[#ECECEC] bg-white p-5">
-        <h2 class="font-semibold text-gray-900">Corte abierto</h2>
-        <div class="mt-4 grid gap-4 sm:grid-cols-3">
-          <div>
-            <p class="text-xs uppercase text-gray-400">Fecha de apertura</p>
-            <p class="mt-1 text-sm font-medium text-gray-900">
-              {{ formatDate(corteActivo.fechaInicio) }}
-            </p>
-          </div>
-          <div>
-            <p class="text-xs uppercase text-gray-400">Efectivo inicial</p>
-            <p class="mt-1 text-sm font-medium text-gray-900">
-              {{ formatCurrency(corteActivo.efectivoInicial) }}
-            </p>
-          </div>
-          <div>
-            <p class="text-xs uppercase text-gray-400">Estado</p>
-            <p class="mt-1 text-sm font-medium text-green-600">Abierto</p>
-          </div>
-        </div>
-      </div>
 
       <div
         v-if="selectedCaja"
@@ -259,6 +308,13 @@ onMounted(loadData)
       >
         <div class="border-b border-gray-100 px-5 py-4">
           <h2 class="font-semibold text-gray-900">Historial de {{ selectedCaja.nombre }}</h2>
+        </div>
+
+        <div class="border-b border-gray-100 p-4">
+          <BaseDateRangeFilter
+            v-model:from="historyDateFrom"
+            v-model:to="historyDateTo"
+          />
         </div>
 
         <div class="overflow-x-auto">
@@ -273,7 +329,7 @@ onMounted(loadData)
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr v-for="item in historial" :key="item.id">
+              <tr v-for="item in paginatedHistory" :key="item.id" class="interactive-lift-row">
                 <td data-label="Apertura" class="px-5 py-4 text-gray-600">
                   {{ formatDate(item.fechaInicio) }}
                 </td>
@@ -291,7 +347,7 @@ onMounted(loadData)
                 </td>
               </tr>
 
-              <tr v-if="!historial.length">
+              <tr v-if="!filteredHistory.length">
                 <td colspan="5" class="px-6 py-10 text-center text-gray-500">
                   No hay cortes registrados.
                 </td>
@@ -299,6 +355,14 @@ onMounted(loadData)
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div v-if="filteredHistory.length > 10" class="mt-4">
+        <BasePagination
+          :page="historyPage"
+          :total-pages="historyTotalPages"
+          @change="goToHistoryPage"
+        />
       </div>
     </div>
 

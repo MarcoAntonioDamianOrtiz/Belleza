@@ -6,13 +6,15 @@ import BaseInput from '@/components/ui/BaseInput.vue'
 
 import { isValidEmail } from '@/utils/validators'
 
-import type { UsuarioFormData } from '@/types/usuario'
+import type { Usuario, UsuarioFormData } from '@/types/usuario'
 
 interface Props {
+  usuario?: Usuario | null
   loading?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  usuario: null,
   loading: false,
 })
 
@@ -24,20 +26,19 @@ const emit = defineEmits<{
 const submitted = ref(false)
 
 const form = reactive<UsuarioFormData>({
-  nombre: '',
-  apellido: '',
-  usuario: '',
-  email: '',
+  nombre: props.usuario?.nombre ?? '',
+  apellido: props.usuario?.apellido ?? '',
+  usuario: props.usuario?.usuario ?? '',
+  email: props.usuario?.email ?? '',
   password: '',
-  tipo: 'empleado',
 })
+
+const editing = computed(() => Boolean(props.usuario))
 
 const emailError = computed(() => {
   if (!submitted.value || !form.email.trim()) return ''
   return isValidEmail(form.email) ? '' : 'Ingresa un correo electrónico válido.'
 })
-
-const submitLabel = computed(() => 'Crear usuario')
 
 function submitForm() {
   submitted.value = true
@@ -48,7 +49,8 @@ function submitForm() {
     !form.usuario.trim() ||
     !form.email.trim() ||
     !isValidEmail(form.email) ||
-    form.password.trim().length < 8
+    (!editing.value && form.password.trim().length < 8) ||
+    (editing.value && form.password.length > 0 && form.password.trim().length < 8)
   ) {
     return
   }
@@ -59,7 +61,6 @@ function submitForm() {
     usuario: form.usuario.trim().replace(/^@+/, ''),
     email: form.email.trim(),
     password: form.password,
-    tipo: form.tipo,
   })
 }
 </script>
@@ -69,6 +70,7 @@ function submitForm() {
     <div class="grid gap-5 sm:grid-cols-2">
       <BaseInput v-model="form.nombre" label="Nombre" placeholder="Nombre" required />
       <BaseInput v-model="form.apellido" label="Apellidos" placeholder="Apellidos" required />
+
       <BaseInput
         v-model="form.usuario"
         label="Usuario"
@@ -76,6 +78,7 @@ function submitForm() {
         autocomplete="username"
         required
       />
+
       <BaseInput
         v-model="form.email"
         type="email"
@@ -85,72 +88,36 @@ function submitForm() {
         autocomplete="email"
         required
       />
+
       <div class="sm:col-span-2">
         <BaseInput
           v-model="form.password"
           type="password"
-          label="Contraseña"
-          placeholder="Mínimo 8 caracteres"
-          autocomplete="new-password"
-          required
+          :label="editing ? 'Nueva contraseña' : 'Contraseña'"
+          :placeholder="editing ? 'Dejar vacío para conservar la actual' : 'Mínimo 8 caracteres'"
+          :autocomplete="editing ? 'new-password' : 'new-password'"
+          :required="!editing"
         />
-        <p v-if="submitted && form.password.trim().length < 8" class="mt-1 text-xs text-red-500">
+        <p
+          v-if="
+            submitted &&
+            ((!editing && form.password.trim().length < 8) ||
+              (editing && form.password.length > 0 && form.password.trim().length < 8))
+          "
+          class="mt-1 text-xs text-red-500"
+        >
           La contraseña debe tener al menos 8 caracteres.
         </p>
       </div>
     </div>
 
-    <fieldset>
-      <legend class="mb-2 text-sm font-medium text-gray-700">Tipo de usuario</legend>
-      <div class="grid gap-3 sm:grid-cols-2">
-        <label
-          class="cursor-pointer rounded-xl border p-4 transition"
-          :class="
-            form.tipo === 'empleado'
-              ? 'border-[#C96886] bg-[#FFF5F8]'
-              : 'border-gray-200 bg-white hover:border-gray-300'
-          "
-        >
-          <div class="flex items-start gap-3">
-            <input
-              v-model="form.tipo"
-              type="radio"
-              value="empleado"
-              class="mt-1 h-4 w-4 accent-[#C96886]"
-            />
-            <div>
-              <p class="font-medium text-gray-900">Empleado</p>
-              <p class="mt-1 text-xs text-gray-500">Puede realizar las operaciones habituales del sistema.</p>
-            </div>
-          </div>
-        </label>
-
-        <label
-          class="cursor-pointer rounded-xl border p-4 transition"
-          :class="
-            form.tipo === 'admin'
-              ? 'border-[#C96886] bg-[#FFF5F8]'
-              : 'border-gray-200 bg-white hover:border-gray-300'
-          "
-        >
-          <div class="flex items-start gap-3">
-            <input
-              v-model="form.tipo"
-              type="radio"
-              value="admin"
-              class="mt-1 h-4 w-4 accent-[#C96886]"
-            />
-            <div>
-              <p class="font-medium text-gray-900">Administrador</p>
-              <p class="mt-1 text-xs text-gray-500">Tiene acceso a la administración y configuración del sistema.</p>
-            </div>
-          </div>
-        </label>
-      </div>
-    </fieldset>
     <div class="mobile-action-row flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row">
-      <BaseButton type="button" variant="secondary" @click="emit('cancel')">Cancelar</BaseButton>
-      <BaseButton type="submit" :loading="props.loading">{{ submitLabel }}</BaseButton>
+      <BaseButton type="button" variant="secondary" @click="emit('cancel')">
+        Cancelar
+      </BaseButton>
+      <BaseButton type="submit" :loading="props.loading">
+        {{ editing ? 'Guardar cambios' : 'Crear empleado' }}
+      </BaseButton>
     </div>
   </form>
 </template>

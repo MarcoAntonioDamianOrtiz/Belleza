@@ -1,7 +1,9 @@
+export type AuthRole = 0 | 1 | 2
+
 export interface AuthUser {
   id: string
   nombre: string
-  rol: 1 | 2
+  rol: AuthRole
 }
 
 export interface LoginPayload {

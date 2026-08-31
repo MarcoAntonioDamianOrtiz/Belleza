@@ -464,7 +464,7 @@ onMounted(loadData)
                 <tr
                   v-for="variante in filteredVariants"
                   :key="variante.id"
-                  class="hover:bg-gray-50"
+                  class="interactive-lift-row"
                 >
                   <td data-label="Producto" class="px-4 py-4 font-medium text-gray-900">
                     {{ variante.producto }}

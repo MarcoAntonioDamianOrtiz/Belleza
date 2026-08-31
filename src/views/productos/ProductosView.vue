@@ -5,6 +5,7 @@ import { PlusIcon } from '@heroicons/vue/24/outline'
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
@@ -12,9 +13,11 @@ import ProductoAccordion from './components/ProductoAccordion.vue'
 import ProductoModal from './components/ProductoModal.vue'
 
 import { getCategorias } from '@/api/categorias'
+import { registrarEntrada } from '@/api/inventario'
 import { createProducto, deleteProducto, getProductos, updateProducto } from '@/api/productos'
 import { createVariante, deleteVariante, getVariantes, updateVariante } from '@/api/variantes'
 import { getFriendlyError } from '@/utils/apiError'
+import { useClientPagination } from '@/composables/useClientPagination'
 import { showError, showSuccess } from '@/utils/notifications'
 
 import type { Categoria } from '@/types/categoria'
@@ -56,6 +59,8 @@ const filteredProducts = computed(() => {
     return productMatch || variantMatch
   })
 })
+
+const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filteredProducts, 10)
 
 async function loadData() {
   loading.value = true
@@ -173,12 +178,37 @@ async function saveVariant(data: VarianteFormData) {
   saving.value = true
 
   try {
+    const currentVariants = productos.value.flatMap((producto) => producto.variantes)
+    const normalizedSku = data.sku.trim().toLowerCase()
+    const normalizedBarcode = data.codigoBarras.trim().toLowerCase()
+
+    const duplicateSku = currentVariants.find(
+      (variante) =>
+        variante.id !== selectedVariant.value?.id &&
+        variante.sku.trim().toLowerCase() === normalizedSku,
+    )
+
+    if (duplicateSku) {
+      await showError('Ya existe una variante con ese SKU. Usa uno diferente.')
+      return
+    }
+
+    const duplicateBarcode = currentVariants.find(
+      (variante) =>
+        variante.id !== selectedVariant.value?.id &&
+        variante.codigoBarras.trim().toLowerCase() === normalizedBarcode,
+    )
+
+    if (duplicateBarcode) {
+      await showError('Ya existe una variante con ese código de barras. Usa uno diferente.')
+      return
+    }
+
     const payload = {
       producto: selectedProduct.value.id,
       codigo_barras: data.codigoBarras,
       sku: data.sku,
       nombre: data.nombre,
-      stock: data.stock,
       stock_minimo: data.stockMinimo,
       costo: data.costo,
       precio_menudeo: data.precioMenudeo,
@@ -191,7 +221,25 @@ async function saveVariant(data: VarianteFormData) {
       await updateVariante(selectedVariant.value.id, payload)
       await showSuccess('Variante actualizada correctamente.')
     } else {
-      await createVariante(payload)
+      const createdVariant = await createVariante(payload)
+
+      if (data.stock > 0) {
+        try {
+          await registrarEntrada({
+            variante_id: createdVariant.id,
+            cantidad: data.stock,
+            observaciones: 'Stock inicial de la variante.',
+          })
+        } catch {
+          closeModal()
+          await loadData()
+          await showError(
+            'La variante se creó, pero no fue posible registrar el stock inicial. Puedes agregarlo desde Inventario.',
+          )
+          return
+        }
+      }
+
       await showSuccess('Variante creada correctamente.')
     }
 
@@ -264,7 +312,7 @@ onMounted(loadData)
 
     <div v-else class="space-y-4">
       <ProductoAccordion
-        v-for="producto in filteredProducts"
+        v-for="producto in paginatedItems"
         :key="producto.id"
         :producto="producto"
         @edit-product="editProduct"
@@ -272,6 +320,13 @@ onMounted(loadData)
         @add-variant="addVariant"
         @edit-variant="editVariant"
         @delete-variant="requestDeleteVariant"
+      />
+
+      <BasePagination
+        v-if="filteredProducts.length > 10"
+        :page="page"
+        :total-pages="totalPages"
+        @change="goToPage"
       />
 
       <div

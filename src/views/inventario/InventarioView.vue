@@ -10,11 +10,13 @@ import {
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
 import { loadInventoryCatalog } from './inventarioData'
 import { getFriendlyError } from '@/utils/apiError'
+import { useClientPagination } from '@/composables/useClientPagination'
 import { showError } from '@/utils/notifications'
 
 import type { CatalogVariant } from './inventarioData'
@@ -34,6 +36,8 @@ const filteredInventory = computed(() => {
     ),
   )
 })
+
+const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filteredInventory, 10)
 
 function getStockStatus(item: CatalogVariant) {
   if (item.stock <= 0) {
@@ -117,13 +121,14 @@ onMounted(loadData)
               <th class="px-5 py-4">SKU</th>
               <th class="px-5 py-4">Código</th>
               <th class="px-5 py-4">Stock</th>
+              <th class="px-5 py-4">Defectuosos</th>
               <th class="px-5 py-4">Mínimo</th>
               <th class="px-5 py-4">Estado</th>
             </tr>
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in filteredInventory" :key="item.id" class="hover:bg-gray-50">
+            <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
               <td data-label="Producto" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.producto }}
               </td>
@@ -134,6 +139,9 @@ onMounted(loadData)
               </td>
               <td data-label="Stock" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.stock }}
+              </td>
+              <td data-label="Defectuosos" class="px-5 py-4 font-medium text-red-600">
+                {{ item.stockDefectuoso }}
               </td>
               <td data-label="Mínimo" class="px-5 py-4 text-gray-600">{{ item.stockMinimo }}</td>
               <td data-label="Estado" class="px-5 py-4">
@@ -152,6 +160,10 @@ onMounted(loadData)
           </tbody>
         </table>
       </div>
+    </div>
+
+    <div v-if="filteredInventory.length > 10" class="mt-4">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
   </section>
 </template>

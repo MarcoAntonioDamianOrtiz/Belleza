@@ -41,7 +41,7 @@ const emit = defineEmits<{
     </div>
 
     <div v-if="items.length" class="divide-y divide-gray-100">
-      <article v-for="item in items" :key="item.variante.id" class="p-5">
+      <article v-for="item in items" :key="item.variante.id" class="interactive-lift-card p-5">
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
             <p class="truncate font-medium text-gray-900">

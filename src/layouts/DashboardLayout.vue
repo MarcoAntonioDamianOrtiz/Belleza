@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
 
-import AppFooter from '@/components/layout/AppFooter.vue'
 import AppNavbar from '@/components/layout/AppNavbar.vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 </script>
@@ -17,7 +16,6 @@ import AppSidebar from '@/components/layout/AppSidebar.vue'
         <RouterView />
       </main>
 
-      <AppFooter />
     </div>
   </div>
 </template>

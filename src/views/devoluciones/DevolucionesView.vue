@@ -12,6 +12,8 @@ import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
+import BaseDateRangeFilter from '@/components/ui/BaseDateRangeFilter.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -29,6 +31,8 @@ import {
 import { formatDate } from '@/utils/formatDate'
 import { useAuthStore } from '@/stores/auth'
 import { getFriendlyError } from '@/utils/apiError'
+import { useClientPagination } from '@/composables/useClientPagination'
+import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 import { showError, showSuccess } from '@/utils/notifications'
 import { getMetodosPagoActivos } from '@/api/metodosPago'
 import { buildVentaOptions, loadSoldVariantOptions, loadVentaCatalog } from '@/utils/ventaOptions'
@@ -61,12 +65,13 @@ const approveOpen = ref(false)
 const rejectOpen = ref(false)
 const selected = ref<Devolucion | null>(null)
 const formMessage = ref('')
+const { dateFrom, dateTo, matchesDate } = useDateRangeFilter('30days')
 
 const form = reactive({
   ventaId: '',
   tipo: 'NORMAL' as TipoDevolucion,
   motivo: '',
-  varianteId: '',
+  detalleVentaId: '',
   cantidad: 1,
   metodoPagoReembolsoId: '',
 })
@@ -76,12 +81,12 @@ const ventaOptions = computed(() => buildVentaOptions(catalog.value?.ventas ?? [
 const variantOptions = computed(() =>
   soldVariants.value.map((item) => ({
     label: item.label,
-    value: item.value,
+    value: item.detalleVentaId,
   })),
 )
 
 const selectedSoldVariant = computed(() =>
-  soldVariants.value.find((item) => item.value === form.varianteId),
+  soldVariants.value.find((item) => item.detalleVentaId === form.detalleVentaId),
 )
 
 const typeOptions = computed(() => {
@@ -117,7 +122,7 @@ const filtered = computed(() => {
         value.toLowerCase().includes(term),
       )
 
-    return matchesStatus && matchesSearch
+    return matchesStatus && matchesSearch && matchesDate(item.fecha)
   })
 })
 
@@ -136,6 +141,8 @@ function statusFor(estado: Devolucion['estado']) {
 
   return { status: 'warning' as const, label: 'Pendiente' }
 }
+
+const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filtered, 10)
 
 async function loadData() {
   loading.value = true
@@ -159,7 +166,7 @@ async function loadData() {
 
 async function selectSale(value: string | number) {
   form.ventaId = String(value)
-  form.varianteId = ''
+  form.detalleVentaId = ''
   form.cantidad = 1
   selectedLines.value = []
   soldVariants.value = []
@@ -187,7 +194,7 @@ function openCreate() {
   form.ventaId = ''
   form.tipo = 'NORMAL'
   form.motivo = ''
-  form.varianteId = ''
+  form.detalleVentaId = ''
   form.cantidad = 1
   form.metodoPagoReembolsoId = ''
   soldVariants.value = []
@@ -201,7 +208,18 @@ function openDetail(item: Devolucion) {
   detailOpen.value = true
 }
 
+
+function dismissActiveInput() {
+  const activeElement = document.activeElement
+
+  if (activeElement instanceof HTMLElement) {
+    activeElement.blur()
+  }
+}
+
 function addReturnLine() {
+  dismissActiveInput()
+
   const variant = selectedSoldVariant.value
   const quantity = Number(form.cantidad)
 
@@ -228,7 +246,7 @@ function addReturnLine() {
     })
   }
 
-  form.varianteId = ''
+  form.detalleVentaId = ''
   form.cantidad = 1
   formMessage.value = ''
 }
@@ -335,6 +353,12 @@ onMounted(loadData)
       </BaseButton>
     </div>
 
+    <BaseDateRangeFilter
+      v-model:from="dateFrom"
+      v-model:to="dateTo"
+      class="mb-4"
+    />
+
     <div class="mb-5 flex flex-col gap-3 lg:flex-row">
       <div class="w-full max-w-xl">
         <SearchBar v-model="search" placeholder="Buscar venta, tipo, usuario o motivo..." />
@@ -362,7 +386,7 @@ onMounted(loadData)
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
+            <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
               <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
@@ -419,6 +443,10 @@ onMounted(loadData)
       </div>
     </div>
 
+    <div v-if="filtered.length > 10" class="mt-4">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
+    </div>
+
     <BaseModal :open="modalOpen" title="Nueva devolución" max-width="lg" @close="modalOpen = false">
       <form class="space-y-5" @submit.prevent="saveReturn">
         <BaseSelect
@@ -449,7 +477,7 @@ onMounted(loadData)
 
         <div v-else class="grid gap-4 md:grid-cols-[minmax(0,1fr)_140px_auto] md:items-end">
           <BaseSelect
-            v-model="form.varianteId"
+            v-model="form.detalleVentaId"
             label="Producto"
             :options="variantOptions"
             :disabled="!form.ventaId || !variantOptions.length"
@@ -464,9 +492,14 @@ onMounted(loadData)
             label="Cantidad"
           />
 
-          <BaseButton type="button" variant="secondary" @click="addReturnLine">
+          <BaseButton
+            type="button"
+            variant="secondary"
+            class="w-full md:w-auto"
+            @click="addReturnLine"
+          >
             <PlusIcon class="h-4 w-4" />
-            Agregar
+            Agregar producto
           </BaseButton>
         </div>
 

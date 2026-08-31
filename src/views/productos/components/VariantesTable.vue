@@ -2,7 +2,10 @@
 import { PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
 
 import StatusChip from '@/components/common/StatusChip.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
 import { formatCurrency } from '@/utils/formatCurrency'
+
+import { useClientPagination } from '@/composables/useClientPagination'
 
 import type { Variante } from '@/types/variante'
 
@@ -10,7 +13,12 @@ interface Props {
   variantes: Variante[]
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+const { page, totalPages, paginatedItems, goToPage } = useClientPagination(
+  () => props.variantes,
+  10,
+)
 
 const emit = defineEmits<{
   edit: [variante: Variante]
@@ -51,6 +59,7 @@ function stockStatus(variante: Variante) {
           <th class="px-4 py-3">Menudeo</th>
           <th class="px-4 py-3">Mayoreo</th>
           <th class="px-4 py-3">Stock</th>
+          <th class="px-4 py-3">Defectuosos</th>
           <th class="px-4 py-3">Mínimo</th>
           <th class="px-4 py-3">Garantía</th>
           <th class="px-4 py-3 text-right">Acciones</th>
@@ -58,7 +67,7 @@ function stockStatus(variante: Variante) {
       </thead>
 
       <tbody class="divide-y divide-gray-100">
-        <tr v-for="variante in variantes" :key="variante.id" class="hover:bg-gray-50">
+        <tr v-for="variante in paginatedItems" :key="variante.id" class="interactive-lift-row">
           <td data-label="Variante" class="px-4 py-4 font-medium text-gray-900">
             {{ variante.nombre }}
           </td>
@@ -85,6 +94,9 @@ function stockStatus(variante: Variante) {
                 :label="stockStatus(variante).label"
               />
             </div>
+          </td>
+          <td data-label="Defectuosos" class="px-4 py-4 font-medium text-red-600">
+            {{ variante.stockDefectuoso }}
           </td>
           <td data-label="Mínimo" class="px-4 py-4 text-gray-600">
             {{ variante.stockMinimo }}
@@ -116,5 +128,9 @@ function stockStatus(variante: Variante) {
         </tr>
       </tbody>
     </table>
+
+    <div v-if="props.variantes.length > 10" class="border-t border-gray-100 p-4">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
+    </div>
   </div>
 </template>

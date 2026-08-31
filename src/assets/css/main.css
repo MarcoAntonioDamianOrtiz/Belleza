@@ -148,3 +148,326 @@ button {
 
   .mobile-action-row > * { width: 100%; }
 }
+
+
+/* ========================================
+  INTERACTIVE DATA FEEDBACK
+  Subtle lift on pointer hover and tactile feedback on touch/click.
+======================================== */
+
+.interactive-lift-row,
+.interactive-lift-card {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.interactive-lift-row {
+  position: relative;
+}
+
+.interactive-lift-row > td {
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.interactive-lift-card {
+  position: relative;
+  transform-origin: center;
+}
+
+/* Touch/click feedback works on phone, tablet and desktop. */
+.interactive-lift-row:active {
+  transform: translateY(-1px) scale(0.998);
+}
+
+.interactive-lift-row:active > td {
+  background-color: #fff4f7;
+}
+
+.interactive-lift-card:active {
+  transform: translateY(-2px) scale(0.995);
+  border-color: #e3a5b8 !important;
+  background-color: #fff8fa;
+  box-shadow: 0 10px 24px rgb(109 55 72 / 12%);
+}
+
+/* Hover is only enabled for devices with a real pointer. */
+@media (hover: hover) and (pointer: fine) {
+  .interactive-lift-row:hover {
+    z-index: 2;
+    transform: translateY(-2px);
+    filter: drop-shadow(0 7px 8px rgb(70 35 47 / 8%));
+  }
+
+  .interactive-lift-row:hover > td {
+    background-color: #fff7f9 !important;
+  }
+
+  .interactive-lift-row:hover > td:first-child {
+    box-shadow: inset 3px 0 0 #c96886;
+  }
+
+  .interactive-lift-card:hover {
+    z-index: 2;
+    transform: translateY(-3px);
+    border-color: #e3a5b8 !important;
+    background-color: #fffafb;
+    box-shadow: 0 12px 28px rgb(109 55 72 / 12%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactive-lift-row,
+  .interactive-lift-row > td,
+  .interactive-lift-card {
+    transition: none;
+  }
+
+  .interactive-lift-row:hover,
+  .interactive-lift-row:active,
+  .interactive-lift-card:hover,
+  .interactive-lift-card:active {
+    transform: none;
+  }
+}
+
+
+/* ========================================
+  GLOBAL DARK MODE
+======================================== */
+
+html[data-theme='dark'],
+html[data-theme='dark'] body,
+html[data-theme='dark'] #app {
+  background: #121417;
+  color: #f5f6f7;
+}
+
+html[data-theme='dark'] body {
+  color-scheme: dark;
+}
+
+html[data-theme='dark'] .bg-white {
+  background-color: #181b20 !important;
+}
+
+html[data-theme='dark'] .bg-\[\#FAFAFA\],
+html[data-theme='dark'] .bg-gray-50 {
+  background-color: #121417 !important;
+}
+
+html[data-theme='dark'] .bg-gray-100 {
+  background-color: #20242a !important;
+}
+
+html[data-theme='dark'] .text-gray-950,
+html[data-theme='dark'] .text-gray-900,
+html[data-theme='dark'] .text-gray-800,
+html[data-theme='dark'] .text-gray-700,
+html[data-theme='dark'] .text-\[\#2B2B2B\] {
+  color: #f4f5f6 !important;
+}
+
+html[data-theme='dark'] .text-gray-600 {
+  color: #c4c9d1 !important;
+}
+
+html[data-theme='dark'] .text-gray-500 {
+  color: #aeb4bf !important;
+}
+
+html[data-theme='dark'] .text-gray-400 {
+  color: #858d99 !important;
+}
+
+html[data-theme='dark'] .text-gray-300 {
+  color: #707985 !important;
+}
+
+html[data-theme='dark'] .border-\[\#ECECEC\],
+html[data-theme='dark'] .border-\[\#E5E7EB\],
+html[data-theme='dark'] .border-gray-100,
+html[data-theme='dark'] .border-gray-200,
+html[data-theme='dark'] .border-gray-300 {
+  border-color: #2a2f36 !important;
+}
+
+html[data-theme='dark'] input,
+html[data-theme='dark'] select,
+html[data-theme='dark'] textarea {
+  border-color: #303640 !important;
+  background-color: #1b1f25 !important;
+  color: #f4f5f6 !important;
+}
+
+html[data-theme='dark'] input::placeholder,
+html[data-theme='dark'] textarea::placeholder {
+  color: #747d89 !important;
+}
+
+html[data-theme='dark'] input:disabled,
+html[data-theme='dark'] select:disabled,
+html[data-theme='dark'] textarea:disabled {
+  background-color: #171a1f !important;
+  color: #6f7782 !important;
+}
+
+html[data-theme='dark'] table thead,
+html[data-theme='dark'] thead.bg-gray-50 {
+  background-color: #15181c !important;
+}
+
+html[data-theme='dark'] tbody.divide-y > :not([hidden]) ~ :not([hidden]) {
+  border-color: #272c33 !important;
+}
+
+html[data-theme='dark'] .shadow-sm,
+html[data-theme='dark'] .shadow-md,
+html[data-theme='dark'] .shadow-lg,
+html[data-theme='dark'] .shadow-xl {
+  --tw-shadow-color: rgb(0 0 0 / 32%);
+}
+
+html[data-theme='dark'] .hover\:bg-gray-50:hover,
+html[data-theme='dark'] .hover\:bg-gray-100:hover {
+  background-color: #20242a !important;
+}
+
+html[data-theme='dark'] .bg-\[\#FBEFF3\] {
+  background-color: #2b2026 !important;
+}
+
+html[data-theme='dark'] .bg-\[\#FAF7FB\] {
+  background-color: #1b1e23 !important;
+}
+
+html[data-theme='dark'] .border-\[\#F0E4E8\],
+html[data-theme='dark'] .border-\[\#E8D9DE\] {
+  border-color: #343039 !important;
+}
+
+html[data-theme='dark'] .mobile-stack-table tbody > tr {
+  border-color: #2a2f36;
+  background: #181b20;
+}
+
+html[data-theme='dark'] .mobile-stack-table tbody > tr:hover {
+  background: #181b20;
+}
+
+html[data-theme='dark'] .mobile-stack-table td {
+  border-bottom-color: #272c33;
+}
+
+html[data-theme='dark'] .mobile-stack-table td::before {
+  color: #969eaa;
+}
+
+html[data-theme='dark'] .interactive-lift-row:active > td {
+  background-color: #252027 !important;
+}
+
+html[data-theme='dark'] .interactive-lift-card:active {
+  border-color: #80485b !important;
+  background-color: #211b20;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 26%);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html[data-theme='dark'] .interactive-lift-row:hover > td {
+    background-color: #211c21 !important;
+  }
+
+  html[data-theme='dark'] .interactive-lift-row:hover > td:first-child {
+    box-shadow: inset 3px 0 0 #ef6b94;
+  }
+
+  html[data-theme='dark'] .interactive-lift-card:hover {
+    border-color: #734454 !important;
+    background-color: #201b1f;
+    box-shadow: 0 12px 28px rgb(0 0 0 / 28%);
+  }
+}
+
+/* Keep alerts/status colors readable in the dark theme. */
+html[data-theme='dark'] .bg-red-50 {
+  background-color: #351d22 !important;
+}
+
+html[data-theme='dark'] .bg-green-50 {
+  background-color: #15291f !important;
+}
+
+html[data-theme='dark'] .bg-amber-50 {
+  background-color: #302716 !important;
+}
+
+html[data-theme='dark'] .bg-blue-50 {
+  background-color: #17263a !important;
+}
+
+/* ========================================
+  COMPACT SIDEBAR
+  No internal scrollbar: reduce vertical density on short displays.
+======================================== */
+
+.app-sidebar-nav {
+  scrollbar-width: none;
+}
+
+.app-sidebar-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-height: 760px) {
+  .app-sidebar-header {
+    height: 3.75rem !important;
+  }
+
+  .app-sidebar-nav {
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+  }
+
+  .sidebar-group + .sidebar-group {
+    margin-top: 0.4rem !important;
+    padding-top: 0.4rem !important;
+  }
+
+  .sidebar-group-label {
+    display: none;
+  }
+
+  .sidebar-link {
+    min-height: 2.15rem !important;
+    padding-top: 0.2rem !important;
+    padding-bottom: 0.2rem !important;
+  }
+
+  .sidebar-link > span:first-child {
+    height: 1.75rem !important;
+    width: 1.75rem !important;
+  }
+
+  .app-sidebar-footer {
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+  }
+}
+
+@media (max-height: 640px) {
+  .sidebar-link {
+    min-height: 1.9rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .sidebar-link > span:first-child {
+    height: 1.55rem !important;
+    width: 1.55rem !important;
+  }
+}

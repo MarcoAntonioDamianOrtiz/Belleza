@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -43,6 +43,8 @@ interface VarianteFormState {
   garantiaMeses: number | null | ''
 }
 
+const formError = ref('')
+
 const form = reactive<VarianteFormState>({
   nombre: props.variante?.nombre ?? '',
   sku: props.variante?.sku ?? '',
@@ -56,7 +58,36 @@ const form = reactive<VarianteFormState>({
 })
 
 function submitForm() {
+  formError.value = ''
+
   if (!form.nombre.trim() || !form.sku.trim() || !form.codigoBarras.trim()) {
+    formError.value = 'Completa los campos obligatorios.'
+    return
+  }
+
+  const costo = Number(form.costo)
+  const precioMenudeo = Number(form.precioMenudeo)
+  const precioMayoreo = Number(form.precioMayoreo)
+  const stock = Number(form.stock)
+  const stockMinimo = Number(form.stockMinimo)
+
+  if (precioMenudeo < costo) {
+    formError.value = 'El precio de menudeo no puede ser menor al costo.'
+    return
+  }
+
+  if (precioMayoreo < costo) {
+    formError.value = 'El precio de mayoreo no puede ser menor al costo.'
+    return
+  }
+
+  if (!Number.isInteger(stock) || stock < 0) {
+    formError.value = 'El stock inicial debe ser un número entero igual o mayor a cero.'
+    return
+  }
+
+  if (!Number.isInteger(stockMinimo) || stockMinimo < 0) {
+    formError.value = 'El stock mínimo debe ser un número entero igual o mayor a cero.'
     return
   }
 
@@ -64,11 +95,11 @@ function submitForm() {
     nombre: form.nombre.trim(),
     sku: form.sku.trim(),
     codigoBarras: form.codigoBarras.trim(),
-    costo: Number(form.costo),
-    precioMenudeo: Number(form.precioMenudeo),
-    precioMayoreo: Number(form.precioMayoreo),
-    stock: Number(form.stock),
-    stockMinimo: Number(form.stockMinimo),
+    costo,
+    precioMenudeo,
+    precioMayoreo,
+    stock,
+    stockMinimo,
     garantiaMeses:
       form.garantiaMeses === null || form.garantiaMeses === '' ? null : Number(form.garantiaMeses),
   })
@@ -109,7 +140,14 @@ function submitForm() {
         required
       />
 
-      <BaseInput v-model="form.stock" label="Stock inicial" type="number" min="0" required />
+      <BaseInput
+        v-model="form.stock"
+        :label="variante ? 'Stock actual' : 'Stock inicial'"
+        type="number"
+        min="0"
+        :disabled="Boolean(variante)"
+        required
+      />
 
       <BaseInput v-model="form.stockMinimo" label="Stock mínimo" type="number" min="0" required />
 
@@ -122,7 +160,15 @@ function submitForm() {
       />
     </div>
 
+    <p v-if="variante" class="text-xs text-gray-500">
+      Para modificar existencias, utiliza el módulo de Inventario.
+    </p>
+
     <p class="text-xs text-gray-500">Si no cuenta con garantía, deja el campo vacío.</p>
+
+    <p v-if="formError" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+      {{ formError }}
+    </p>
 
     <div class="mobile-action-row flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row">
       <BaseButton variant="secondary" @click="emit('cancel')"> Cancelar </BaseButton>

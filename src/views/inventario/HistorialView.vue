@@ -4,6 +4,8 @@ import { ArrowLeftIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
+import BaseDateRangeFilter from '@/components/ui/BaseDateRangeFilter.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
@@ -12,6 +14,8 @@ import { getMovimientosInventario } from '@/api/inventario'
 import { enrichMovements, loadInventoryCatalog } from './inventarioData'
 import { formatDate } from '@/utils/formatDate'
 import { getFriendlyError } from '@/utils/apiError'
+import { useClientPagination } from '@/composables/useClientPagination'
+import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 import { showError } from '@/utils/notifications'
 
 import type { TipoMovimientoInventario } from '@/types/inventario'
@@ -21,6 +25,7 @@ const search = ref('')
 const typeFilter = ref<'TODOS' | TipoMovimientoInventario>('TODOS')
 const loading = ref(false)
 const movimientos = ref<MovimientoVista[]>([])
+const { dateFrom, dateTo, matchesDate } = useDateRangeFilter('30days')
 
 const typeOptions = [
   { label: 'Todos los movimientos', value: 'TODOS' },
@@ -41,7 +46,7 @@ const filtered = computed(() => {
         value.toLowerCase().includes(term),
       )
 
-    return matchesType && matchesSearch
+    return matchesType && matchesSearch && matchesDate(item.fecha)
   })
 })
 
@@ -62,6 +67,8 @@ function quantityLabel(item: MovimientoVista) {
   if (item.tipo === 'SALIDA') return `-${item.cantidad}`
   return String(item.cantidad)
 }
+
+const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filtered, 10)
 
 async function loadData() {
   loading.value = true
@@ -99,6 +106,12 @@ onMounted(loadData)
       </RouterLink>
     </div>
 
+    <BaseDateRangeFilter
+      v-model:from="dateFrom"
+      v-model:to="dateTo"
+      class="mb-4"
+    />
+
     <div class="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
       <div class="w-full max-w-xl">
         <SearchBar v-model="search" placeholder="Buscar producto, variante, SKU o motivo..." />
@@ -118,9 +131,9 @@ onMounted(loadData)
     <div v-else>
       <div class="grid gap-3 lg:hidden">
         <article
-          v-for="item in filtered"
+          v-for="item in paginatedItems"
           :key="item.id"
-          class="rounded-2xl border border-[#ECECEC] bg-white p-4"
+          class="interactive-lift-card rounded-2xl border border-[#ECECEC] bg-white p-4"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
@@ -189,7 +202,7 @@ onMounted(loadData)
             </thead>
 
             <tbody class="divide-y divide-gray-100">
-              <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
+              <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
                 <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                   {{ formatDate(item.fecha) }}
                 </td>
@@ -222,6 +235,10 @@ onMounted(loadData)
           </table>
         </div>
       </div>
+    </div>
+
+    <div v-if="filtered.length > 10" class="mt-4">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
   </section>
 </template>

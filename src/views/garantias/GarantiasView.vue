@@ -5,6 +5,8 @@ import { CheckCircleIcon, EyeIcon, PlusIcon, XCircleIcon } from '@heroicons/vue/
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
+import BaseDateRangeFilter from '@/components/ui/BaseDateRangeFilter.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
@@ -24,6 +26,8 @@ import {
 import { formatDate } from '@/utils/formatDate'
 import { useAuthStore } from '@/stores/auth'
 import { getFriendlyError } from '@/utils/apiError'
+import { useClientPagination } from '@/composables/useClientPagination'
+import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 import { showError, showSuccess } from '@/utils/notifications'
 import { buildVentaOptions, loadSoldVariantOptions, loadVentaCatalog } from '@/utils/ventaOptions'
 
@@ -49,6 +53,7 @@ const finishOpen = ref(false)
 const actionMode = ref<ActionMode>('crear')
 const selected = ref<Garantia | null>(null)
 const formMessage = ref('')
+const { dateFrom, dateTo, matchesDate } = useDateRangeFilter('30days')
 
 const form = reactive({
   ventaId: '',
@@ -107,7 +112,7 @@ const filtered = computed(() => {
         value.toLowerCase().includes(term),
       )
 
-    return matchesStatus && matchesSearch
+    return matchesStatus && matchesSearch && matchesDate(item.fecha)
   })
 })
 
@@ -126,6 +131,8 @@ function statusFor(estado: Garantia['estado']) {
 
   return { status: 'warning' as const, label: 'Pendiente' }
 }
+
+const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filtered, 10)
 
 async function loadData() {
   loading.value = true
@@ -304,6 +311,12 @@ onMounted(loadData)
       </BaseButton>
     </div>
 
+    <BaseDateRangeFilter
+      v-model:from="dateFrom"
+      v-model:to="dateTo"
+      class="mb-4"
+    />
+
     <div class="mb-5 flex flex-col gap-3 lg:flex-row">
       <div class="w-full max-w-xl">
         <SearchBar v-model="search" placeholder="Buscar venta, producto, usuario o motivo..." />
@@ -331,7 +344,7 @@ onMounted(loadData)
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
+            <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
               <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
@@ -398,6 +411,10 @@ onMounted(loadData)
           </tbody>
         </table>
       </div>
+    </div>
+
+    <div v-if="filtered.length > 10" class="mt-4">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
 
     <BaseModal

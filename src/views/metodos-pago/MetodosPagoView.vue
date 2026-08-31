@@ -130,7 +130,7 @@ onMounted(loadData)
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
+            <tr v-for="item in filtered" :key="item.id" class="interactive-lift-row">
               <td data-label="Nombre" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.nombre }}
               </td>

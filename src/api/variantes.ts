@@ -11,6 +11,7 @@ interface VarianteApi {
   sku: string
   nombre: string
   stock: number
+  stock_defectuoso?: number
   stock_minimo: number
   costo: string | number
   precio_menudeo: string | number
@@ -29,6 +30,7 @@ function mapVariante(item: VarianteApi): Variante {
     sku: item.sku,
     nombre: item.nombre,
     stock: Number(item.stock),
+    stockDefectuoso: Number(item.stock_defectuoso ?? 0),
     stockMinimo: Number(item.stock_minimo),
     costo: Number(item.costo),
     precioMenudeo: Number(item.precio_menudeo),

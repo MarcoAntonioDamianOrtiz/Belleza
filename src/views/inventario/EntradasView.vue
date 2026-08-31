@@ -5,6 +5,7 @@ import { ArrowLeftIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 import MovimientoInventarioModal from './components/MovimientoInventarioModal.vue'
@@ -13,6 +14,7 @@ import { getMovimientosInventario, registrarEntrada } from '@/api/inventario'
 import { enrichMovements, loadInventoryCatalog } from './inventarioData'
 import { formatDate } from '@/utils/formatDate'
 import { getFriendlyError } from '@/utils/apiError'
+import { useClientPagination } from '@/composables/useClientPagination'
 import { showError, showSuccess } from '@/utils/notifications'
 
 import type { MovimientoFormData } from './components/MovimientoInventarioForm.vue'
@@ -46,6 +48,8 @@ const filtered = computed(() => {
         ),
     )
 })
+
+const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filtered, 10)
 
 async function loadData() {
   loading.value = true
@@ -138,7 +142,7 @@ onMounted(loadData)
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
+            <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
               <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
@@ -164,6 +168,10 @@ onMounted(loadData)
           </tbody>
         </table>
       </div>
+    </div>
+
+    <div v-if="filtered.length > 10" class="mt-4">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
 
     <MovimientoInventarioModal

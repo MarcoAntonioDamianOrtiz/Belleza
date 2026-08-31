@@ -1,24 +1,77 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 
 import { getReporte } from '@/api/reportes'
 import { getFriendlyError } from '@/utils/apiError'
+import { useClientPagination } from '@/composables/useClientPagination'
 import { showError } from '@/utils/notifications'
 
 import type { ReporteClave, ReporteFila } from '@/types/reporte'
 
+function toInputDate(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function parseInputDate(value: string, endOfDay = false) {
+  if (!value) return null
+
+  const [yearText, monthText, dayText] = value.split('-')
+  const year = Number(yearText)
+  const month = Number(monthText)
+  const day = Number(dayText)
+
+  if (!year || !month || !day) return null
+
+  const date = new Date(
+    year,
+    month - 1,
+    day,
+    endOfDay ? 23 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 999 : 0,
+  )
+
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function toUtcDate(value: Date) {
+  return value.toISOString().slice(0, 10)
+}
+
+function getBackendDateRange(from: string, to: string) {
+  const localStart = parseInputDate(from)
+  const localEnd = parseInputDate(to, true)
+
+  return {
+    from: localStart ? toUtcDate(localStart) : '',
+    to: localEnd ? toUtcDate(localEnd) : '',
+  }
+}
+
+const today = new Date()
+const thirtyDaysAgo = new Date(today)
+thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
+
 const reportType = ref<ReporteClave>('ventas')
-const startDate = ref('')
-const endDate = ref('')
+const startDate = ref(toInputDate(thirtyDaysAgo))
+const endDate = ref(toInputDate(today))
 const rows = ref<ReporteFila[]>([])
 const loading = ref(false)
+const generated = ref(false)
+
+const { page, totalPages, paginatedItems, goToPage } = useClientPagination(rows, 10)
 
 const reportOptions = [
   { label: 'Ventas', value: 'ventas' },
@@ -30,6 +83,47 @@ const reportOptions = [
   { label: 'Garantías', value: 'garantias' },
   { label: 'Movimientos de inventario', value: 'movimientos' },
 ]
+
+const selectedReportLabel = computed(
+  () => reportOptions.find((option) => option.value === reportType.value)?.label ?? 'Reporte',
+)
+
+const reportUsesDates = computed(
+  () => reportType.value !== 'inventario' && reportType.value !== 'stock-bajo',
+)
+
+const reportHasRowDate = computed(() =>
+  ['ventas', 'cortes', 'devoluciones', 'garantias', 'movimientos'].includes(reportType.value),
+)
+
+function getRowDate(row: ReporteFila) {
+  const value = reportType.value === 'cortes' ? row.fecha_inicio : row.fecha
+  return typeof value === 'string' ? value : null
+}
+
+function isRowInsideSelectedLocalRange(row: ReporteFila) {
+  if (!reportHasRowDate.value) return true
+
+  const rawDate = getRowDate(row)
+  if (!rawDate) return false
+
+  const date = new Date(rawDate)
+  if (Number.isNaN(date.getTime())) return false
+
+  const localStart = parseInputDate(startDate.value)
+  const localEnd = parseInputDate(endDate.value, true)
+
+  if (localStart && date < localStart) return false
+  if (localEnd && date > localEnd) return false
+
+  return true
+}
+
+watch(reportType, () => {
+  rows.value = []
+  generated.value = false
+  goToPage(1)
+})
 
 const columns = computed(() => {
   const keys = new Set<string>()
@@ -52,17 +146,48 @@ function formatCell(value: unknown): string {
 }
 
 async function generateReport() {
+  if (
+    reportUsesDates.value &&
+    startDate.value &&
+    endDate.value &&
+    startDate.value > endDate.value
+  ) {
+    await showError('La fecha inicial no puede ser posterior a la fecha final.')
+    return
+  }
+
   loading.value = true
+  generated.value = false
+  rows.value = []
+  goToPage(1)
 
   try {
     const params: Record<string, string> = {}
 
-    if (startDate.value) params.fecha_inicio = startDate.value
-    if (endDate.value) params.fecha_fin = endDate.value
+    if (reportUsesDates.value) {
+      if (reportHasRowDate.value) {
+        // Django filtra DateTimeField por fecha UTC. Ampliamos el rango a los
+        // días UTC que toca el periodo local y después filtramos en el navegador.
+        const backendRange = getBackendDateRange(startDate.value, endDate.value)
 
-    rows.value = await getReporte(reportType.value, params)
+        if (backendRange.from) params.fecha_inicio = backendRange.from
+        if (backendRange.to) params.fecha_fin = backendRange.to
+      } else {
+        if (startDate.value) params.fecha_inicio = startDate.value
+        if (endDate.value) params.fecha_fin = endDate.value
+      }
+    }
+
+    const reportRows = await getReporte(reportType.value, params)
+    rows.value = reportRows.filter(isRowInsideSelectedLocalRange)
+    generated.value = true
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible generar el reporte.'))
+    await showError(
+      getFriendlyError(
+        error,
+        `No fue posible generar el reporte de ${selectedReportLabel.value.toLowerCase()}.`,
+      ),
+    )
   } finally {
     loading.value = false
   }
@@ -116,9 +241,19 @@ function exportCsv() {
           required
         />
 
-        <BaseInput v-model="startDate" type="date" label="Fecha inicial" />
+        <BaseInput
+          v-model="startDate"
+          type="date"
+          label="Fecha inicial"
+          :disabled="!reportUsesDates"
+        />
 
-        <BaseInput v-model="endDate" type="date" label="Fecha final" />
+        <BaseInput
+          v-model="endDate"
+          type="date"
+          label="Fecha final"
+          :disabled="!reportUsesDates"
+        />
 
         <div class="flex items-end">
           <BaseButton class="w-full" :loading="loading" @click="generateReport">
@@ -152,7 +287,7 @@ function exportCsv() {
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="(row, index) in rows" :key="index" class="hover:bg-gray-50">
+            <tr v-for="(row, index) in paginatedItems" :key="index" class="interactive-lift-row">
               <td
                 v-for="column in columns"
                 :key="column"
@@ -167,11 +302,21 @@ function exportCsv() {
       </div>
     </div>
 
+    <div v-if="rows.length > 10" class="mt-4">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
+    </div>
+
     <div
       v-else
       class="mt-6 rounded-2xl border border-[#ECECEC] bg-white p-12 text-center text-gray-500"
     >
-      Selecciona un reporte y presiona “Generar reporte”.
+      <template v-if="generated">
+        No hay resultados para {{ selectedReportLabel.toLowerCase() }}
+        <span v-if="reportUsesDates">en el periodo seleccionado</span>.
+      </template>
+      <template v-else>
+        Selecciona un reporte y presiona “Generar reporte”.
+      </template>
     </div>
   </section>
 </template>

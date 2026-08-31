@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { EyeIcon, PrinterIcon, XCircleIcon } from '@heroicons/vue/24/outline'
 
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
+import BaseDateRangeFilter from '@/components/ui/BaseDateRangeFilter.vue'
 import { formatCurrency } from '@/utils/formatCurrency'
 import { formatDate } from '@/utils/formatDate'
+
+import { useClientPagination } from '@/composables/useClientPagination'
+import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 
 import type { VentaResumen } from '@/types/venta'
 
@@ -13,7 +19,15 @@ interface Props {
   canCancel: boolean
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+const { dateFrom, dateTo, matchesDate } = useDateRangeFilter('30days')
+const filteredVentas = computed(() => props.ventas.filter((venta) => matchesDate(venta.fecha)))
+
+const { page, totalPages, paginatedItems, goToPage } = useClientPagination(
+  filteredVentas,
+  10,
+)
 
 const emit = defineEmits<{
   view: [venta: VentaResumen]
@@ -36,8 +50,15 @@ function statusFor(estado: VentaResumen['estado']) {
 
 <template>
   <div class="overflow-hidden rounded-2xl border border-[#ECECEC] bg-white">
+    <div class="border-b border-gray-100 p-4">
+      <BaseDateRangeFilter v-model:from="dateFrom" v-model:to="dateTo" />
+    </div>
+
     <div class="overflow-x-auto">
-      <table v-if="ventas.length" class="mobile-stack-table w-full min-w-[850px] text-left text-sm">
+      <table
+        v-if="filteredVentas.length"
+        class="mobile-stack-table w-full min-w-[850px] text-left text-sm"
+      >
         <thead class="border-b border-gray-200 bg-gray-50">
           <tr class="text-xs font-semibold uppercase text-gray-500">
             <th class="px-5 py-4">Folio</th>
@@ -50,7 +71,7 @@ function statusFor(estado: VentaResumen['estado']) {
         </thead>
 
         <tbody class="divide-y divide-gray-100">
-          <tr v-for="venta in ventas" :key="venta.id" class="hover:bg-gray-50">
+          <tr v-for="venta in paginatedItems" :key="venta.id" class="interactive-lift-row">
             <td data-label="Folio" class="px-5 py-4 font-medium text-gray-900">
               {{ venta.folio }}
             </td>
@@ -104,9 +125,13 @@ function statusFor(estado: VentaResumen['estado']) {
 
       <EmptyState
         v-else
-        title="No hay ventas"
-        description="Las ventas realizadas aparecerán en esta sección."
+        title="No hay ventas en este periodo"
+        description="Cambia el periodo para consultar ventas anteriores."
       />
+    </div>
+
+    <div v-if="filteredVentas.length > 10" class="border-t border-gray-100 p-4">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
   </div>
 </template>

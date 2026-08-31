@@ -8,6 +8,7 @@ export interface Variante {
   precioMenudeo: number
   precioMayoreo: number
   stock: number
+  stockDefectuoso: number
   stockMinimo: number
   garantiaMeses: number | null
   activo: boolean
@@ -20,7 +21,6 @@ export interface VariantePayload {
   codigo_barras: string
   sku: string
   nombre: string
-  stock: number
   stock_minimo: number
   costo: number
   precio_menudeo: number

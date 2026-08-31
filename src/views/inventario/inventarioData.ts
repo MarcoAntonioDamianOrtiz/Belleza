@@ -10,6 +10,7 @@ export interface CatalogVariant {
   sku: string
   codigoBarras: string
   stock: number
+  stockDefectuoso: number
   stockMinimo: number
 }
 
@@ -30,6 +31,7 @@ export async function loadInventoryCatalog(): Promise<CatalogVariant[]> {
     sku: item.sku,
     codigoBarras: item.codigoBarras,
     stock: item.stock,
+    stockDefectuoso: item.stockDefectuoso,
     stockMinimo: item.stockMinimo,
   }))
 }

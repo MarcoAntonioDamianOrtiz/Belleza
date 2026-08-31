@@ -6,12 +6,14 @@ import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 
 import { createCategoria, deleteCategoria, getCategorias, updateCategoria } from '@/api/categorias'
 import { getFriendlyError } from '@/utils/apiError'
+import { useClientPagination } from '@/composables/useClientPagination'
 import { showError, showSuccess } from '@/utils/notifications'
 
 import type { Categoria } from '@/types/categoria'
@@ -38,6 +40,8 @@ const filtered = computed(() => {
     [item.nombre, item.descripcion].some((value) => value.toLowerCase().includes(term)),
   )
 })
+
+const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filtered, 10)
 
 async function loadCategorias() {
   loading.value = true
@@ -156,7 +160,7 @@ onMounted(loadCategorias)
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in filtered" :key="item.id" class="hover:bg-gray-50">
+            <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
               <td data-label="Nombre" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.nombre }}
               </td>
@@ -194,6 +198,10 @@ onMounted(loadCategorias)
           </tbody>
         </table>
       </div>
+    </div>
+
+    <div v-if="filtered.length > 10" class="mt-4">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
 
     <BaseModal
