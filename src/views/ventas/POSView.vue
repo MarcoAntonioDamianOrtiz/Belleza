@@ -24,7 +24,7 @@ import ResumenVenta from './components/ResumenVenta.vue'
 import TicketPreview from './components/TicketPreview.vue'
 import VentaCarrito from './components/VentaCarrito.vue'
 
-import { getCajasActivas } from '@/api/cajas'
+import { getCajasActivas, getCorteActivo } from '@/api/cajas'
 import { getEmpresa } from '@/api/empresa'
 import { getMetodosPagoActivos } from '@/api/metodosPago'
 import { getProductos } from '@/api/productos'
@@ -101,6 +101,28 @@ const isCash = computed(() =>
   selectedPaymentMethod.value?.nombre.toLowerCase().includes('efectivo'),
 )
 
+async function getUsableBoxes(boxes: Caja[]) {
+  if (authStore.isAdmin) return boxes
+
+  const checks = await Promise.all(
+    boxes.map(async (box) => {
+      if (box.estado !== 'ABIERTA') return null
+
+      try {
+        await getCorteActivo(box.id)
+        return box
+      } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          return null
+        }
+        throw error
+      }
+    }),
+  )
+
+  return checks.filter((box): box is Caja => box !== null)
+}
+
 const filteredVariants = computed(() => {
   const term = search.value.trim().toLowerCase()
 
@@ -139,17 +161,18 @@ async function loadData() {
     }))
 
     metodos.value = paymentMethods
-    cajas.value = boxes
+    const usableBoxes = await getUsableBoxes(boxes)
+    cajas.value = usableBoxes
     ventas.value = sales
 
-    if (!paymentMethodId.value && paymentMethods[0]) {
-      paymentMethodId.value = paymentMethods[0].id
+    if (!paymentMethods.some((item) => item.id === paymentMethodId.value)) {
+      paymentMethodId.value = paymentMethods[0]?.id ?? ''
     }
 
-    const firstOpenBox = boxes.find((item) => item.estado === 'ABIERTA')
+    const firstOpenBox = usableBoxes.find((item) => item.estado === 'ABIERTA')
 
-    if (!selectedCajaId.value && firstOpenBox) {
-      selectedCajaId.value = firstOpenBox.id
+    if (!usableBoxes.some((item) => item.id === selectedCajaId.value)) {
+      selectedCajaId.value = firstOpenBox?.id ?? ''
     }
 
     try {
@@ -535,7 +558,7 @@ onMounted(loadData)
     <HistorialVentas
       v-else-if="!loading"
       :ventas="ventas"
-      :can-cancel="authStore.isAdmin"
+      :can-cancel="true"
       @view="showTicket"
       @reprint="reprintTicket"
       @cancel="requestCancel"

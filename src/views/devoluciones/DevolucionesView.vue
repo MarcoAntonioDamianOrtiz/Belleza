@@ -34,7 +34,6 @@ import { getFriendlyError } from '@/utils/apiError'
 import { useClientPagination } from '@/composables/useClientPagination'
 import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 import { showError, showSuccess } from '@/utils/notifications'
-import { getMetodosPagoActivos } from '@/api/metodosPago'
 import { buildVentaOptions, loadSoldVariantOptions, loadVentaCatalog } from '@/utils/ventaOptions'
 
 import type { Devolucion, TipoDevolucion } from '@/types/devolucion'
@@ -52,7 +51,6 @@ const authStore = useAuthStore()
 const items = ref<Devolucion[]>([])
 const catalog = ref<VentaCatalog | null>(null)
 const soldVariants = ref<SoldVariantOption[]>([])
-const paymentOptions = ref<Array<{ label: string; value: string }>>([])
 const selectedLines = ref<ReturnLine[]>([])
 const search = ref('')
 const statusFilter = ref('TODOS')
@@ -73,7 +71,6 @@ const form = reactive({
   motivo: '',
   detalleVentaId: '',
   cantidad: 1,
-  metodoPagoReembolsoId: '',
 })
 
 const ventaOptions = computed(() => buildVentaOptions(catalog.value?.ventas ?? []))
@@ -92,6 +89,7 @@ const selectedSoldVariant = computed(() =>
 const typeOptions = computed(() => {
   const options = [
     { label: 'Normal', value: 'NORMAL' },
+    { label: 'Producto defectuoso', value: 'DEFECTUOSO' },
     { label: 'Garantía', value: 'GARANTIA' },
   ]
 
@@ -107,7 +105,7 @@ const statusOptions = [
   { label: 'Pendientes', value: 'PENDIENTE' },
   { label: 'Aprobadas', value: 'APROBADA' },
   { label: 'Rechazadas', value: 'RECHAZADA' },
-  { label: 'Finalizadas', value: 'FINALIZADA' },
+  { label: 'Canceladas', value: 'CANCELADA' },
 ]
 
 const filtered = computed(() => {
@@ -135,8 +133,8 @@ function statusFor(estado: Devolucion['estado']) {
     return { status: 'danger' as const, label: 'Rechazada' }
   }
 
-  if (estado === 'FINALIZADA') {
-    return { status: 'info' as const, label: 'Finalizada' }
+  if (estado === 'CANCELADA') {
+    return { status: 'neutral' as const, label: 'Cancelada' }
   }
 
   return { status: 'warning' as const, label: 'Pendiente' }
@@ -148,15 +146,13 @@ async function loadData() {
   loading.value = true
 
   try {
-    const [returns, salesCatalog, paymentMethods] = await Promise.all([
+    const [returns, salesCatalog] = await Promise.all([
       getDevoluciones(),
       loadVentaCatalog(),
-      getMetodosPagoActivos(),
     ])
 
     items.value = returns
     catalog.value = salesCatalog
-    paymentOptions.value = paymentMethods.map((item) => ({ label: item.nombre, value: item.id }))
   } catch (error) {
     await showError(getFriendlyError(error, 'No fue posible cargar las devoluciones.'))
   } finally {
@@ -196,7 +192,6 @@ function openCreate() {
   form.motivo = ''
   form.detalleVentaId = ''
   form.cantidad = 1
-  form.metodoPagoReembolsoId = ''
   soldVariants.value = []
   selectedLines.value = []
   formMessage.value = ''
@@ -228,8 +223,8 @@ function addReturnLine() {
     return
   }
 
-  if (quantity > variant.cantidadVendida) {
-    formMessage.value = `La cantidad máxima para este producto es ${variant.cantidadVendida}.`
+  if (quantity > variant.cantidadDisponible) {
+    formMessage.value = `La cantidad máxima disponible para este producto es ${variant.cantidadDisponible}.`
     return
   }
 
@@ -242,7 +237,7 @@ function addReturnLine() {
       detalleVentaId: variant.detalleVentaId,
       label: variant.label,
       cantidad: quantity,
-      cantidadVendida: variant.cantidadVendida,
+      cantidadVendida: variant.cantidadDisponible,
     })
   }
 
@@ -256,8 +251,8 @@ function removeReturnLine(detalleVentaId: string) {
 }
 
 async function saveReturn() {
-  if (!form.ventaId || !form.metodoPagoReembolsoId || !form.motivo.trim() || !selectedLines.value.length) {
-    formMessage.value = 'Completa la venta, el método de reembolso, los productos y el motivo.'
+  if (!form.ventaId || !form.motivo.trim() || !selectedLines.value.length) {
+    formMessage.value = 'Completa la venta, los productos y el motivo.'
     return
   }
 
@@ -267,7 +262,6 @@ async function saveReturn() {
   try {
     await createDevolucion({
       venta_id: form.ventaId,
-      metodo_pago_reembolso_id: form.metodoPagoReembolsoId,
       tipo: form.tipo,
       motivo: form.motivo.trim(),
       productos: selectedLines.value.map((item) => ({
@@ -459,14 +453,6 @@ onMounted(loadData)
         />
 
         <BaseSelect
-          v-model="form.metodoPagoReembolsoId"
-          label="Método de reembolso"
-          :options="paymentOptions"
-          placeholder="Selecciona el método de reembolso"
-          required
-        />
-
-        <BaseSelect
           v-model="form.tipo"
           label="Tipo de devolución"
           :options="typeOptions"
@@ -488,7 +474,7 @@ onMounted(loadData)
             v-model="form.cantidad"
             type="number"
             min="1"
-            :max="selectedSoldVariant?.cantidadVendida"
+            :max="selectedSoldVariant?.cantidadDisponible"
             label="Cantidad"
           />
 

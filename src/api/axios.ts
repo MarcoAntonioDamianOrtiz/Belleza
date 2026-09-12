@@ -11,6 +11,8 @@ interface RetryRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean
 }
 
+const apiBaseUrl = String(import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+
 interface RefreshResponse {
   success: boolean
   message?: string
@@ -20,7 +22,7 @@ interface RefreshResponse {
 }
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: apiBaseUrl,
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
@@ -48,7 +50,7 @@ async function obtainNewAccessToken(): Promise<string> {
   }
 
   const response = await axios.post<RefreshResponse>(
-    `${import.meta.env.VITE_API_URL}/auth/refresh/`,
+    `${apiBaseUrl}/auth/refresh/`,
     { refresh },
     {
       headers: {

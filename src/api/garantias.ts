@@ -1,6 +1,7 @@
 import api from './axios'
+import { getAllPages } from './pagination'
 
-import { unwrapData, unwrapList } from '@/utils/apiResponse'
+import { unwrapData } from '@/utils/apiResponse'
 
 import type {
   Garantia,
@@ -45,8 +46,8 @@ function mapGarantia(item: GarantiaApi): Garantia {
 }
 
 export async function getGarantias(): Promise<Garantia[]> {
-  const { data } = await api.get('/garantias/')
-  return unwrapList<GarantiaApi>(data).map(mapGarantia)
+  const items = await getAllPages<GarantiaApi>(api, '/garantias/', { page_size: 200 })
+  return items.map(mapGarantia)
 }
 
 export async function getGarantia(id: string): Promise<Garantia> {

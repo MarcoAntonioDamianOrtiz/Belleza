@@ -9,10 +9,10 @@ import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 
-import { getReporte } from '@/api/reportes'
+import { getReporte, getReportePage } from '@/api/reportes'
 import { getFriendlyError } from '@/utils/apiError'
-import { useClientPagination } from '@/composables/useClientPagination'
 import { showError } from '@/utils/notifications'
+import { useAuthStore } from '@/stores/auth'
 
 import type { ReporteClave, ReporteFila } from '@/types/reporte'
 
@@ -23,106 +23,53 @@ function toInputDate(date: Date) {
   return `${year}-${month}-${day}`
 }
 
-function parseInputDate(value: string, endOfDay = false) {
-  if (!value) return null
-
-  const [yearText, monthText, dayText] = value.split('-')
-  const year = Number(yearText)
-  const month = Number(monthText)
-  const day = Number(dayText)
-
-  if (!year || !month || !day) return null
-
-  const date = new Date(
-    year,
-    month - 1,
-    day,
-    endOfDay ? 23 : 0,
-    endOfDay ? 59 : 0,
-    endOfDay ? 59 : 0,
-    endOfDay ? 999 : 0,
-  )
-
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-function toUtcDate(value: Date) {
-  return value.toISOString().slice(0, 10)
-}
-
-function getBackendDateRange(from: string, to: string) {
-  const localStart = parseInputDate(from)
-  const localEnd = parseInputDate(to, true)
-
-  return {
-    from: localStart ? toUtcDate(localStart) : '',
-    to: localEnd ? toUtcDate(localEnd) : '',
-  }
-}
+const authStore = useAuthStore()
 
 const today = new Date()
 const thirtyDaysAgo = new Date(today)
 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
 
-const reportType = ref<ReporteClave>('ventas')
+const reportType = ref<ReporteClave>(authStore.isAdmin ? 'ventas' : 'inventario')
 const startDate = ref(toInputDate(thirtyDaysAgo))
 const endDate = ref(toInputDate(today))
 const rows = ref<ReporteFila[]>([])
 const loading = ref(false)
+const exporting = ref(false)
 const generated = ref(false)
+const page = ref(1)
+const totalPages = ref(1)
+const totalCount = ref(0)
+const pageSize = 10
 
-const { page, totalPages, paginatedItems, goToPage } = useClientPagination(rows, 10)
-
-const reportOptions = [
-  { label: 'Ventas', value: 'ventas' },
+const allReportOptions: Array<{ label: string; value: ReporteClave; adminOnly?: boolean }> = [
+  { label: 'Ventas', value: 'ventas', adminOnly: true },
   { label: 'Inventario', value: 'inventario' },
   { label: 'Stock bajo', value: 'stock-bajo' },
-  { label: 'Cortes de caja', value: 'cortes' },
-  { label: 'Productos más vendidos', value: 'productos' },
-  { label: 'Devoluciones', value: 'devoluciones' },
-  { label: 'Garantías', value: 'garantias' },
-  { label: 'Movimientos de inventario', value: 'movimientos' },
+  { label: 'Cortes de caja', value: 'cortes', adminOnly: true },
+  { label: 'Productos más vendidos', value: 'productos', adminOnly: true },
+  { label: 'Devoluciones', value: 'devoluciones', adminOnly: true },
+  { label: 'Garantías', value: 'garantias', adminOnly: true },
+  { label: 'Movimientos de inventario', value: 'movimientos', adminOnly: true },
 ]
 
+const reportOptions = computed(() =>
+  allReportOptions.filter((option) => !option.adminOnly || authStore.isAdmin),
+)
+
 const selectedReportLabel = computed(
-  () => reportOptions.find((option) => option.value === reportType.value)?.label ?? 'Reporte',
+  () => reportOptions.value.find((option) => option.value === reportType.value)?.label ?? 'Reporte',
 )
 
 const reportUsesDates = computed(
   () => reportType.value !== 'inventario' && reportType.value !== 'stock-bajo',
 )
 
-const reportHasRowDate = computed(() =>
-  ['ventas', 'cortes', 'devoluciones', 'garantias', 'movimientos'].includes(reportType.value),
-)
-
-function getRowDate(row: ReporteFila) {
-  const value = reportType.value === 'cortes' ? row.fecha_inicio : row.fecha
-  return typeof value === 'string' ? value : null
-}
-
-function isRowInsideSelectedLocalRange(row: ReporteFila) {
-  if (!reportHasRowDate.value) return true
-
-  const rawDate = getRowDate(row)
-  if (!rawDate) return false
-
-  const date = new Date(rawDate)
-  if (Number.isNaN(date.getTime())) return false
-
-  const localStart = parseInputDate(startDate.value)
-  const localEnd = parseInputDate(endDate.value, true)
-
-  if (localStart && date < localStart) return false
-  if (localEnd && date > localEnd) return false
-
-  return true
-}
-
 watch(reportType, () => {
   rows.value = []
   generated.value = false
-  goToPage(1)
+  page.value = 1
+  totalPages.value = 1
+  totalCount.value = 0
 })
 
 const columns = computed(() => {
@@ -145,7 +92,7 @@ function formatCell(value: unknown): string {
   return String(value)
 }
 
-async function generateReport() {
+async function generateReport(targetPage = 1) {
   if (
     reportUsesDates.value &&
     startDate.value &&
@@ -158,28 +105,21 @@ async function generateReport() {
 
   loading.value = true
   generated.value = false
-  rows.value = []
-  goToPage(1)
 
   try {
     const params: Record<string, string> = {}
 
     if (reportUsesDates.value) {
-      if (reportHasRowDate.value) {
-        // Django filtra DateTimeField por fecha UTC. Ampliamos el rango a los
-        // días UTC que toca el periodo local y después filtramos en el navegador.
-        const backendRange = getBackendDateRange(startDate.value, endDate.value)
-
-        if (backendRange.from) params.fecha_inicio = backendRange.from
-        if (backendRange.to) params.fecha_fin = backendRange.to
-      } else {
-        if (startDate.value) params.fecha_inicio = startDate.value
-        if (endDate.value) params.fecha_fin = endDate.value
-      }
+      if (startDate.value) params.fecha_inicio = startDate.value
+      if (endDate.value) params.fecha_fin = endDate.value
     }
 
-    const reportRows = await getReporte(reportType.value, params)
-    rows.value = reportRows.filter(isRowInsideSelectedLocalRange)
+    const result = await getReportePage(reportType.value, params, targetPage, pageSize)
+
+    rows.value = result.items
+    page.value = result.page
+    totalPages.value = result.totalPages
+    totalCount.value = result.count
     generated.value = true
   } catch (error) {
     await showError(
@@ -193,34 +133,57 @@ async function generateReport() {
   }
 }
 
-function exportCsv() {
-  if (!rows.value.length) return
-
-  const headers = columns.value
-  const content = [
-    headers.join(','),
-    ...rows.value.map((row) =>
-      headers
-        .map((header) => {
-          const value = formatCell(row[header]).replaceAll('"', '""')
-          return `"${value}"`
-        })
-        .join(','),
-    ),
-  ].join('\n')
-
-  const blob = new Blob([content], {
-    type: 'text/csv;charset=utf-8;',
-  })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-
-  link.href = url
-  link.download = `reporte-${reportType.value}.csv`
-  link.click()
-
-  URL.revokeObjectURL(url)
+function goToPage(targetPage: number) {
+  void generateReport(targetPage)
 }
+
+async function exportCsv() {
+  if (!totalCount.value) return
+
+  exporting.value = true
+
+  try {
+    const params: Record<string, string> = {}
+
+    if (reportUsesDates.value) {
+      if (startDate.value) params.fecha_inicio = startDate.value
+      if (endDate.value) params.fecha_fin = endDate.value
+    }
+
+    const exportRows = await getReporte(reportType.value, params)
+    if (!exportRows.length) return
+
+    const headers = [...new Set(exportRows.flatMap((row) => Object.keys(row)))]
+    const content = [
+      headers.join(','),
+      ...exportRows.map((row) =>
+        headers
+          .map((header) => {
+            const value = formatCell(row[header]).replaceAll('"', '""')
+            return `"${value}"`
+          })
+          .join(','),
+      ),
+    ].join('\n')
+
+    const blob = new Blob([content], {
+      type: 'text/csv;charset=utf-8;',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = `reporte-${reportType.value}.csv`
+    link.click()
+
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible exportar el reporte.'))
+  } finally {
+    exporting.value = false
+  }
+}
+
 </script>
 
 <template>
@@ -256,7 +219,7 @@ function exportCsv() {
         />
 
         <div class="flex items-end">
-          <BaseButton class="w-full" :loading="loading" @click="generateReport">
+          <BaseButton class="w-full" :loading="loading" @click="generateReport(1)">
             Generar reporte
           </BaseButton>
         </div>
@@ -270,7 +233,7 @@ function exportCsv() {
       class="mt-6 overflow-hidden rounded-2xl border border-[#ECECEC] bg-white"
     >
       <div class="flex justify-end border-b border-gray-100 p-4">
-        <BaseButton variant="secondary" @click="exportCsv">
+        <BaseButton variant="secondary" :loading="exporting" @click="exportCsv">
           <ArrowDownTrayIcon class="h-5 w-5" />
           Exportar
         </BaseButton>
@@ -287,7 +250,7 @@ function exportCsv() {
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="(row, index) in paginatedItems" :key="index" class="interactive-lift-row">
+            <tr v-for="(row, index) in rows" :key="index" class="interactive-lift-row">
               <td
                 v-for="column in columns"
                 :key="column"
@@ -302,7 +265,7 @@ function exportCsv() {
       </div>
     </div>
 
-    <div v-if="rows.length > 10" class="mt-4">
+    <div v-if="generated && totalPages > 1" class="mt-4">
       <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
 

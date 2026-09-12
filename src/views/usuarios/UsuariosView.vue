@@ -19,6 +19,7 @@ import UsuarioModal from './components/UsuarioModal.vue'
 
 import {
   activateUsuario,
+  createAdmin,
   createUsuario,
   deactivateUsuario,
   getUsuarios,
@@ -157,14 +158,21 @@ async function saveUser(data: UsuarioFormData) {
       await updateUsuario(selectedUser.value.id, payload)
       await showSuccess('Usuario actualizado correctamente.')
     } else {
-      await createUsuario({
+      const payload = {
         nombre: data.nombre,
         apellido: data.apellido,
         usuario: data.usuario,
         email: data.email,
         password: data.password,
-      })
-      await showSuccess('Empleado creado correctamente.')
+      }
+
+      if (data.tipo === 'ADMIN' && authStore.isSuperAdmin) {
+        await createAdmin(payload)
+        await showSuccess('Administrador creado correctamente.')
+      } else {
+        await createUsuario(payload)
+        await showSuccess('Empleado creado correctamente.')
+      }
     }
 
     modalOpen.value = false
@@ -233,7 +241,7 @@ onMounted(loadUsers)
 
       <BaseButton class="mobile-full-button sm:w-auto" @click="openCreate">
         <PlusIcon class="h-4 w-4" />
-        Nuevo empleado
+        {{ authStore.isSuperAdmin ? 'Nuevo usuario' : 'Nuevo empleado' }}
       </BaseButton>
     </div>
 
@@ -364,6 +372,7 @@ onMounted(loadUsers)
       :open="modalOpen"
       :usuario="selectedUser"
       :loading="saving"
+      :allow-admin-creation="authStore.isSuperAdmin"
       @close="closeUserModal"
       @submit="saveUser"
     />

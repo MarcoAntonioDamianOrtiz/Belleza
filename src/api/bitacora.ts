@@ -1,6 +1,5 @@
 import api from './axios'
-
-import { unwrapList } from '@/utils/apiResponse'
+import { getAllPages, getBackendPage } from './pagination'
 
 import type { BitacoraRegistro } from '@/types/bitacora'
 
@@ -13,10 +12,8 @@ interface BitacoraApi {
   fecha: string
 }
 
-export async function getBitacora(): Promise<BitacoraRegistro[]> {
-  const { data } = await api.get('/bitacora/')
-
-  return unwrapList<BitacoraApi>(data).map((item) => ({
+function mapBitacora(item: BitacoraApi): BitacoraRegistro {
+  return {
     id: item.id,
     modulo: item.modulo,
     accion: item.accion,
@@ -26,5 +23,33 @@ export async function getBitacora(): Promise<BitacoraRegistro[]> {
         ? (item.usuario?.nombre ?? 'Usuario')
         : (item.usuario ?? 'Usuario'),
     fecha: item.fecha,
-  }))
+  }
+}
+
+export async function getBitacora(
+  params?: Record<string, string | number | boolean | undefined>,
+): Promise<BitacoraRegistro[]> {
+  const items = await getAllPages<BitacoraApi>(api, '/bitacora/', {
+    page_size: 200,
+    ...params,
+  })
+
+  return items.map(mapBitacora)
+}
+
+export async function getBitacoraPage(
+  page = 1,
+  pageSize = 10,
+  params?: Record<string, string | number | boolean | undefined>,
+) {
+  const result = await getBackendPage<BitacoraApi>(api, '/bitacora/', {
+    page,
+    pageSize,
+    params,
+  })
+
+  return {
+    ...result,
+    items: result.items.map(mapBitacora),
+  }
 }

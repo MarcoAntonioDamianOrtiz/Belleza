@@ -69,9 +69,11 @@ const ventaOptions = computed(() => buildVentaOptions(catalog.value?.ventas ?? [
 
 const variantOptions = computed(() =>
   soldVariants.value
-    .filter((item) => Number(item.garantiaMeses ?? 0) > 0)
+    .filter((item) => !item.garantiaConocida || Number(item.garantiaMeses ?? 0) > 0)
     .map((item) => ({
-      label: `${item.label} · Garantía: ${item.garantiaMeses} meses`,
+      label: item.garantiaConocida
+        ? `${item.label} · Garantía: ${item.garantiaMeses} meses`
+        : `${item.label} · Se validará la garantía al registrar`,
       value: item.value,
     })),
 )
@@ -218,8 +220,16 @@ async function submitModal() {
 
   try {
     if (actionMode.value === 'crear') {
+      const soldVariant = selectedSoldVariant.value
+
+      if (!soldVariant) {
+        formMessage.value = 'Selecciona un producto disponible de la venta.'
+        return
+      }
+
       await createGarantia({
         venta_id: form.ventaId,
+        detalle_venta_id: soldVariant.detalleVentaId,
         variante_id: form.varianteId,
         cantidad: Number(form.cantidad),
         motivo: form.motivo.trim(),
@@ -450,7 +460,7 @@ onMounted(loadData)
             v-model="form.cantidad"
             type="number"
             min="1"
-            :max="selectedSoldVariant?.cantidadVendida"
+            :max="selectedSoldVariant?.cantidadDisponible"
             label="Cantidad"
             required
           />

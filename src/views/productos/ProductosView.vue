@@ -14,17 +14,20 @@ import ProductoModal from './components/ProductoModal.vue'
 
 import { getCategorias } from '@/api/categorias'
 import { registrarEntrada } from '@/api/inventario'
-import { createProducto, deleteProducto, getProductos, updateProducto } from '@/api/productos'
-import { createVariante, deleteVariante, getVariantes, updateVariante } from '@/api/variantes'
+import { activarProducto, createProducto, desactivarProducto, getProductos, updateProducto } from '@/api/productos'
+import { activarVariante, createVariante, desactivarVariante, getVariantes, updateVariante } from '@/api/variantes'
 import { getFriendlyError } from '@/utils/apiError'
 import { useClientPagination } from '@/composables/useClientPagination'
 import { showError, showSuccess } from '@/utils/notifications'
+import { useAuthStore } from '@/stores/auth'
 
 import type { Categoria } from '@/types/categoria'
 import type { Producto } from '@/types/producto'
 import type { Variante } from '@/types/variante'
 import type { ProductoFormData } from './components/ProductoForm.vue'
 import type { VarianteFormData } from './components/VarianteForm.vue'
+
+const authStore = useAuthStore()
 
 const search = ref('')
 const loading = ref(false)
@@ -68,8 +71,8 @@ async function loadData() {
   try {
     const [categoryItems, productItems, variantItems] = await Promise.all([
       getCategorias(),
-      getProductos(),
-      getVariantes(),
+      getProductos(authStore.isAdmin ? 'todos' : undefined),
+      getVariantes(authStore.isAdmin ? 'todos' : undefined),
     ])
 
     categorias.value = categoryItems
@@ -130,14 +133,14 @@ function editVariant(variante: Variante) {
   modalOpen.value = true
 }
 
-function requestDeleteProduct(producto: Producto) {
+function requestToggleProduct(producto: Producto) {
   selectedProduct.value = producto
   selectedVariant.value = null
   deleteType.value = 'producto'
   confirmOpen.value = true
 }
 
-function requestDeleteVariant(variante: Variante) {
+function requestToggleVariant(variante: Variante) {
   selectedVariant.value = variante
   selectedProduct.value = null
   deleteType.value = 'variante'
@@ -152,7 +155,6 @@ async function saveProduct(data: ProductoFormData) {
       categoria: data.categoriaId,
       nombre: data.nombre,
       descripcion: data.descripcion,
-      activo: true,
     }
 
     if (selectedProduct.value) {
@@ -214,7 +216,6 @@ async function saveVariant(data: VarianteFormData) {
       precio_menudeo: data.precioMenudeo,
       precio_mayoreo: data.precioMayoreo,
       garantia_meses: data.garantiaMeses,
-      activo: true,
     }
 
     if (selectedVariant.value) {
@@ -257,13 +258,23 @@ async function confirmDelete() {
 
   try {
     if (deleteType.value === 'producto' && selectedProduct.value) {
-      await deleteProducto(selectedProduct.value.id)
-      await showSuccess('Producto desactivado correctamente.')
+      if (selectedProduct.value.activo) {
+        await desactivarProducto(selectedProduct.value.id)
+        await showSuccess('Producto desactivado correctamente.')
+      } else {
+        await activarProducto(selectedProduct.value.id)
+        await showSuccess('Producto activado correctamente.')
+      }
     }
 
     if (deleteType.value === 'variante' && selectedVariant.value) {
-      await deleteVariante(selectedVariant.value.id)
-      await showSuccess('Variante desactivada correctamente.')
+      if (selectedVariant.value.activo) {
+        await desactivarVariante(selectedVariant.value.id)
+        await showSuccess('Variante desactivada correctamente.')
+      } else {
+        await activarVariante(selectedVariant.value.id)
+        await showSuccess('Variante activada correctamente.')
+      }
     }
 
     confirmOpen.value = false
@@ -291,7 +302,7 @@ onMounted(loadData)
         <p class="mt-1 text-sm text-gray-500">Administra los productos y sus variantes.</p>
       </div>
 
-      <BaseButton :disabled="!categorias.length" @click="newProduct">
+      <BaseButton v-if="authStore.isAdmin" :disabled="!categorias.some((item) => item.activo)" @click="newProduct">
         <PlusIcon class="h-4 w-4" />
         Nuevo producto
       </BaseButton>
@@ -315,11 +326,12 @@ onMounted(loadData)
         v-for="producto in paginatedItems"
         :key="producto.id"
         :producto="producto"
+        :can-manage="authStore.isAdmin"
         @edit-product="editProduct"
-        @delete-product="requestDeleteProduct"
+        @toggle-product="requestToggleProduct"
         @add-variant="addVariant"
         @edit-variant="editVariant"
-        @delete-variant="requestDeleteVariant"
+        @toggle-variant="requestToggleVariant"
       />
 
       <BasePagination
@@ -351,13 +363,29 @@ onMounted(loadData)
 
     <ConfirmDialog
       :open="confirmOpen"
-      :title="deleteType === 'producto' ? 'Desactivar producto' : 'Desactivar variante'"
+      :title="
+        deleteType === 'producto'
+          ? selectedProduct?.activo
+            ? 'Desactivar producto'
+            : 'Activar producto'
+          : selectedVariant?.activo
+            ? 'Desactivar variante'
+            : 'Activar variante'
+      "
       :description="
         deleteType === 'producto'
-          ? '¿Deseas desactivar este producto?'
-          : '¿Deseas desactivar esta variante?'
+          ? selectedProduct?.activo
+            ? '¿Deseas desactivar este producto?'
+            : '¿Deseas activar este producto?'
+          : selectedVariant?.activo
+            ? '¿Deseas desactivar esta variante?'
+            : '¿Deseas activar esta variante?'
       "
-      confirm-text="Desactivar"
+      :confirm-text="
+        (deleteType === 'producto' ? selectedProduct?.activo : selectedVariant?.activo)
+          ? 'Desactivar'
+          : 'Activar'
+      "
       :loading="saving"
       @confirm="confirmDelete"
       @cancel="confirmOpen = false"

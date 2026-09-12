@@ -15,7 +15,9 @@ export interface SoldVariantOption {
   value: string
   detalleVentaId: string
   cantidadVendida: number
+  cantidadDisponible: number
   garantiaMeses: number | null
+  garantiaConocida: boolean
 }
 
 export interface VentaCatalog {
@@ -43,15 +45,19 @@ export async function loadSoldVariantOptions(
 ): Promise<{ detalle: VentaDetalle; opciones: SoldVariantOption[] }> {
   const detalle = await getVenta(ventaId)
 
-  const opciones = detalle.productos.map((linea) => {
+  const opciones = detalle.productos
+    .filter((linea) => linea.cantidadDisponible > 0)
+    .map((linea) => {
     const variante = catalog.variantes.find((item) => item.id === linea.varianteId)
 
     return {
       value: linea.varianteId,
       detalleVentaId: linea.detalleId,
-      label: `${linea.producto} - ${linea.variante} · ${linea.cantidad} vendidos`,
+      label: `${linea.producto} - ${linea.variante} · ${linea.cantidadDisponible} disponibles`,
       cantidadVendida: linea.cantidad,
+      cantidadDisponible: linea.cantidadDisponible,
       garantiaMeses: variante?.garantiaMeses ?? null,
+      garantiaConocida: Boolean(variante),
     }
   })
 

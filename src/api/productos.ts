@@ -1,6 +1,7 @@
 import api from './axios'
+import { getAllPages } from './pagination'
 
-import { unwrapData, unwrapList } from '@/utils/apiResponse'
+import { unwrapData } from '@/utils/apiResponse'
 
 import type { ProductoPayload } from '@/types/producto'
 
@@ -15,9 +16,11 @@ export interface ProductoApi {
   fecha_actualizacion?: string
 }
 
-export async function getProductos(): Promise<ProductoApi[]> {
-  const { data } = await api.get('/productos/')
-  return unwrapList<ProductoApi>(data)
+export async function getProductos(activo?: 'todos' | 'true' | 'false'): Promise<ProductoApi[]> {
+  return getAllPages<ProductoApi>(api, '/productos/', {
+    page_size: 200,
+    activo,
+  })
 }
 
 export async function createProducto(payload: ProductoPayload): Promise<ProductoApi> {
@@ -30,6 +33,10 @@ export async function updateProducto(id: string, payload: ProductoPayload): Prom
   return unwrapData<ProductoApi>(data)
 }
 
-export async function deleteProducto(id: string): Promise<void> {
-  await api.delete(`/productos/${id}/`)
+export async function activarProducto(id: string): Promise<void> {
+  await api.post(`/productos/${id}/activar/`)
+}
+
+export async function desactivarProducto(id: string): Promise<void> {
+  await api.post(`/productos/${id}/desactivar/`)
 }

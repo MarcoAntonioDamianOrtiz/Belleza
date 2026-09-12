@@ -16,5 +16,4 @@ export interface ProductoPayload {
   categoria: string
   nombre: string
   descripcion?: string
-  activo?: boolean
 }

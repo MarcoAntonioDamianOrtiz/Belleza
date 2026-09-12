@@ -11,15 +11,15 @@ import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
-import { getProductos } from '@/api/productos'
-import { getVariantes } from '@/api/variantes'
-import { getVentas } from '@/api/ventas'
+import { getVariantesPage } from '@/api/variantes'
+import { getReportePage, getResumenDia } from '@/api/reportes'
+import { getVentasPage } from '@/api/ventas'
 import { formatCurrency } from '@/utils/formatCurrency'
 import { formatDate } from '@/utils/formatDate'
 import { getFriendlyError } from '@/utils/apiError'
 import { showError } from '@/utils/notifications'
 
-import type { Variante } from '@/types/variante'
+import type { ResumenDia } from '@/types/reporte'
 import type { VentaResumen } from '@/types/venta'
 
 interface LowStockItem {
@@ -31,55 +31,44 @@ interface LowStockItem {
 }
 
 const ventas = ref<VentaResumen[]>([])
-const variantes = ref<Variante[]>([])
-const productNames = ref(new Map<string, string>())
+const variantCount = ref(0)
+const resumen = ref<ResumenDia | null>(null)
+const lowStockRows = ref<Array<Record<string, unknown>>>([])
+const lowStockCount = ref(0)
 const loading = ref(false)
 
-const todayKey = new Date().toDateString()
-
-const salesToday = computed(() =>
-  ventas.value.filter(
-    (item) => item.estado === 'COMPLETADA' && new Date(item.fecha).toDateString() === todayKey,
-  ),
-)
-
-const incomeToday = computed(() => salesToday.value.reduce((total, item) => total + item.total, 0))
-
 const lowStock = computed<LowStockItem[]>(() =>
-  variantes.value
-    .filter((item) => item.stock <= item.stockMinimo)
-    .map((item) => ({
-      id: item.id,
-      product: productNames.value.get(item.productoId) ?? 'Producto',
-      variant: item.nombre,
-      stock: item.stock,
-      stockMinimo: item.stockMinimo,
-    }))
-    .slice(0, 6),
+  lowStockRows.value.slice(0, 6).map((item) => ({
+    id: String(item.id ?? ''),
+    product: String(item.producto ?? 'Producto'),
+    variant: String(item.variante ?? 'Variante'),
+    stock: Number(item.stock_actual ?? 0),
+    stockMinimo: Number(item.stock_minimo ?? 0),
+  })),
 )
 
 const stats = computed(() => [
   {
     title: 'Ventas de hoy',
-    value: String(salesToday.value.length),
+    value: String(resumen.value?.cantidadVentas ?? 0),
     detail: 'Ventas completadas',
     icon: ShoppingCartIcon,
   },
   {
     title: 'Ingresos de hoy',
-    value: formatCurrency(incomeToday.value),
-    detail: 'Total registrado',
+    value: formatCurrency(resumen.value?.ventaNeta ?? 0),
+    detail: 'Venta neta del día',
     icon: BanknotesIcon,
   },
   {
     title: 'Variantes',
-    value: String(variantes.value.length),
+    value: String(variantCount.value),
     detail: 'Disponibles en catálogo',
     icon: CubeIcon,
   },
   {
     title: 'Stock bajo',
-    value: String(lowStock.value.length),
+    value: String(lowStockCount.value),
     detail: 'Requieren atención',
     icon: ArchiveBoxIcon,
   },
@@ -91,15 +80,18 @@ async function loadData() {
   loading.value = true
 
   try {
-    const [sales, products, variants] = await Promise.all([
-      getVentas(),
-      getProductos(),
-      getVariantes(),
+    const [salesPage, variantsPage, daySummary, lowStockPage] = await Promise.all([
+      getVentasPage(1, 6),
+      getVariantesPage(1, 1),
+      getResumenDia(),
+      getReportePage('stock-bajo', {}, 1, 6),
     ])
 
-    ventas.value = sales
-    variantes.value = variants
-    productNames.value = new Map(products.map((item) => [item.id, item.nombre]))
+    ventas.value = salesPage.items
+    variantCount.value = variantsPage.count
+    resumen.value = daySummary
+    lowStockRows.value = lowStockPage.items
+    lowStockCount.value = lowStockPage.count
   } catch (error) {
     await showError(getFriendlyError(error, 'No fue posible cargar el resumen del sistema.'))
   } finally {

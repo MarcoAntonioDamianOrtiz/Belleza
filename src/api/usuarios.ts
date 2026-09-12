@@ -1,6 +1,6 @@
 import api from './axios'
+import { getAllPages } from './pagination'
 
-import { unwrapList } from '@/utils/apiResponse'
 
 import type {
   Usuario,
@@ -38,12 +38,16 @@ function mapUsuario(item: UsuarioApi): Usuario {
 }
 
 export async function getUsuarios(): Promise<Usuario[]> {
-  const { data } = await api.get('/usuarios/')
-  return unwrapList<UsuarioApi>(data).map(mapUsuario)
+  const items = await getAllPages<UsuarioApi>(api, '/usuarios/', { page_size: 200 })
+  return items.map(mapUsuario)
 }
 
 export async function createUsuario(payload: UsuarioCreatePayload): Promise<void> {
   await api.post('/usuarios/', payload)
+}
+
+export async function createAdmin(payload: UsuarioCreatePayload): Promise<void> {
+  await api.post('/usuarios/crear_admin/', payload)
 }
 
 export async function updateUsuario(id: string, payload: UsuarioUpdatePayload): Promise<void> {
@@ -51,7 +55,7 @@ export async function updateUsuario(id: string, payload: UsuarioUpdatePayload): 
 }
 
 export async function deactivateUsuario(id: string): Promise<void> {
-  await api.delete(`/usuarios/${id}/`)
+  await api.post(`/usuarios/${id}/desactivar/`)
 }
 
 export async function activateUsuario(id: string): Promise<void> {

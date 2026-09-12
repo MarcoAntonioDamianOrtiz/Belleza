@@ -1,6 +1,7 @@
 import api from './axios'
+import { getAllPages, getBackendPage } from './pagination'
 
-import { unwrapData, unwrapList } from '@/utils/apiResponse'
+import { unwrapData } from '@/utils/apiResponse'
 
 import type { Variante, VariantePayload } from '@/types/variante'
 
@@ -42,9 +43,29 @@ function mapVariante(item: VarianteApi): Variante {
   }
 }
 
-export async function getVariantes(): Promise<Variante[]> {
-  const { data } = await api.get('/variantes/')
-  return unwrapList<VarianteApi>(data).map(mapVariante)
+export async function getVariantesPage(
+  page = 1,
+  pageSize = 10,
+  activo?: 'todos' | 'true' | 'false',
+) {
+  const result = await getBackendPage<VarianteApi>(api, '/variantes/', {
+    page,
+    pageSize,
+    params: { activo },
+  })
+
+  return {
+    ...result,
+    items: result.items.map(mapVariante),
+  }
+}
+
+export async function getVariantes(activo?: 'todos' | 'true' | 'false'): Promise<Variante[]> {
+  const items = await getAllPages<VarianteApi>(api, '/variantes/', {
+    page_size: 200,
+    activo,
+  })
+  return items.map(mapVariante)
 }
 
 export async function getVarianteByCode(codigo: string): Promise<Variante> {
@@ -63,6 +84,10 @@ export async function updateVariante(id: string, payload: VariantePayload): Prom
   return mapVariante(unwrapData<VarianteApi>(data))
 }
 
-export async function deleteVariante(id: string): Promise<void> {
-  await api.delete(`/variantes/${id}/`)
+export async function activarVariante(id: string): Promise<void> {
+  await api.post(`/variantes/${id}/activar/`)
+}
+
+export async function desactivarVariante(id: string): Promise<void> {
+  await api.post(`/variantes/${id}/desactivar/`)
 }

@@ -34,10 +34,12 @@ const form = reactive<ProductoFormData>({
   descripcion: props.producto?.descripcion ?? '',
 })
 
-const options = props.categorias.map((item) => ({
-  label: item.nombre,
-  value: item.id,
-}))
+const options = props.categorias
+  .filter((item) => item.activo || item.id === props.producto?.categoriaId)
+  .map((item) => ({
+    label: item.activo ? item.nombre : `${item.nombre} (inactiva)`,
+    value: item.id,
+  }))
 
 function submitForm() {
   if (!form.nombre.trim() || !form.categoriaId) return

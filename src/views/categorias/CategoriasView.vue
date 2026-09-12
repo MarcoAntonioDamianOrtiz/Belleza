@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, NoSymbolIcon, PencilSquareIcon, PlusIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -11,12 +11,15 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 
-import { createCategoria, deleteCategoria, getCategorias, updateCategoria } from '@/api/categorias'
+import { activarCategoria, createCategoria, desactivarCategoria, getCategorias, updateCategoria } from '@/api/categorias'
 import { getFriendlyError } from '@/utils/apiError'
 import { useClientPagination } from '@/composables/useClientPagination'
 import { showError, showSuccess } from '@/utils/notifications'
+import { useAuthStore } from '@/stores/auth'
 
 import type { Categoria } from '@/types/categoria'
+
+const authStore = useAuthStore()
 
 const categorias = ref<Categoria[]>([])
 const search = ref('')
@@ -79,14 +82,12 @@ async function save() {
       await updateCategoria(selected.value.id, {
         nombre: form.nombre.trim(),
         descripcion: form.descripcion.trim(),
-        activo: true,
       })
       await showSuccess('Categoría actualizada correctamente.')
     } else {
       await createCategoria({
         nombre: form.nombre.trim(),
         descripcion: form.descripcion.trim(),
-        activo: true,
       })
       await showSuccess('Categoría creada correctamente.')
     }
@@ -111,9 +112,14 @@ async function confirmDelete() {
   saving.value = true
 
   try {
-    await deleteCategoria(selected.value.id)
+    if (selected.value.activo) {
+      await desactivarCategoria(selected.value.id)
+      await showSuccess('Categoría desactivada correctamente.')
+    } else {
+      await activarCategoria(selected.value.id)
+      await showSuccess('Categoría activada correctamente.')
+    }
     confirmOpen.value = false
-    await showSuccess('Categoría desactivada correctamente.')
     await loadCategorias()
   } catch (error) {
     await showError(getFriendlyError(error, 'No fue posible desactivar la categoría.'))
@@ -136,7 +142,7 @@ onMounted(loadCategorias)
         <p class="mt-1 text-sm text-gray-500">Organiza los productos por categoría.</p>
       </div>
 
-      <BaseButton class="mobile-full-button sm:w-auto" @click="openNew">
+      <BaseButton v-if="authStore.isAdmin" class="mobile-full-button sm:w-auto" @click="openNew">
         <PlusIcon class="h-4 w-4" />
         Nueva categoría
       </BaseButton>
@@ -155,6 +161,7 @@ onMounted(loadCategorias)
             <tr class="text-xs font-semibold uppercase text-gray-500">
               <th class="px-5 py-4">Nombre</th>
               <th class="px-5 py-4">Descripción</th>
+              <th class="px-5 py-4">Estado</th>
               <th class="px-5 py-4 text-right">Acciones</th>
             </tr>
           </thead>
@@ -167,8 +174,16 @@ onMounted(loadCategorias)
               <td data-label="Descripción" class="px-5 py-4 text-gray-600">
                 {{ item.descripcion || 'Sin descripción' }}
               </td>
+              <td data-label="Estado" class="px-5 py-4">
+                <span
+                  class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium"
+                  :class="item.activo ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'"
+                >
+                  {{ item.activo ? 'Activa' : 'Inactiva' }}
+                </span>
+              </td>
               <td data-label="Acciones" class="px-5 py-4">
-                <div class="flex justify-end gap-1">
+                <div v-if="authStore.isAdmin" class="flex justify-end gap-1">
                   <button
                     type="button"
                     class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
@@ -180,18 +195,20 @@ onMounted(loadCategorias)
 
                   <button
                     type="button"
-                    class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500"
-                    aria-label="Desactivar categoría"
+                    class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
+                    :aria-label="item.activo ? 'Desactivar categoría' : 'Activar categoría'"
                     @click="requestDelete(item)"
                   >
-                    <TrashIcon class="h-5 w-5" />
+                    <NoSymbolIcon v-if="item.activo" class="h-5 w-5" />
+                    <CheckCircleIcon v-else class="h-5 w-5" />
                   </button>
                 </div>
+                <span v-else class="text-gray-400">—</span>
               </td>
             </tr>
 
             <tr v-if="!filtered.length">
-              <td colspan="3" class="px-6 py-12 text-center text-gray-500">
+              <td colspan="4" class="px-6 py-12 text-center text-gray-500">
                 No se encontraron categorías.
               </td>
             </tr>
@@ -232,9 +249,13 @@ onMounted(loadCategorias)
 
     <ConfirmDialog
       :open="confirmOpen"
-      title="Desactivar categoría"
-      :description="`¿Deseas desactivar ${selected?.nombre ?? 'esta categoría'}?`"
-      confirm-text="Desactivar"
+      :title="selected?.activo ? 'Desactivar categoría' : 'Activar categoría'"
+      :description="
+        selected?.activo
+          ? `¿Deseas desactivar ${selected?.nombre ?? 'esta categoría'}?`
+          : `¿Deseas activar ${selected?.nombre ?? 'esta categoría'}?`
+      "
+      :confirm-text="selected?.activo ? 'Desactivar' : 'Activar'"
       :loading="saving"
       @confirm="confirmDelete"
       @cancel="confirmOpen = false"

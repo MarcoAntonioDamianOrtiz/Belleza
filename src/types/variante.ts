@@ -26,5 +26,4 @@ export interface VariantePayload {
   precio_menudeo: number
   precio_mayoreo: number
   garantia_meses: number | null
-  activo?: boolean
 }

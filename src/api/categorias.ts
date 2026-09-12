@@ -1,6 +1,7 @@
 import api from './axios'
+import { getAllPages } from './pagination'
 
-import { unwrapList } from '@/utils/apiResponse'
+import { unwrapData } from '@/utils/apiResponse'
 
 import type { Categoria, CategoriaPayload } from '@/types/categoria'
 
@@ -25,20 +26,24 @@ function mapCategoria(item: CategoriaApi): Categoria {
 }
 
 export async function getCategorias(): Promise<Categoria[]> {
-  const { data } = await api.get('/categorias/')
-  return unwrapList<CategoriaApi>(data).map(mapCategoria)
+  const items = await getAllPages<CategoriaApi>(api, '/categorias/', { page_size: 200 })
+  return items.map(mapCategoria)
 }
 
 export async function createCategoria(payload: CategoriaPayload): Promise<Categoria> {
-  const { data } = await api.post<CategoriaApi>('/categorias/', payload)
-  return mapCategoria(data)
+  const { data } = await api.post('/categorias/', payload)
+  return mapCategoria(unwrapData<CategoriaApi>(data))
 }
 
 export async function updateCategoria(id: string, payload: CategoriaPayload): Promise<Categoria> {
-  const { data } = await api.put<CategoriaApi>(`/categorias/${id}/`, payload)
-  return mapCategoria(data)
+  const { data } = await api.put(`/categorias/${id}/`, payload)
+  return mapCategoria(unwrapData<CategoriaApi>(data))
 }
 
-export async function deleteCategoria(id: string): Promise<void> {
-  await api.delete(`/categorias/${id}/`)
+export async function activarCategoria(id: string): Promise<void> {
+  await api.post(`/categorias/${id}/activar/`)
+}
+
+export async function desactivarCategoria(id: string): Promise<void> {
+  await api.post(`/categorias/${id}/desactivar/`)
 }

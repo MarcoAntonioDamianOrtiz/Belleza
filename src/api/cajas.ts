@@ -1,6 +1,5 @@
 import api from './axios'
-
-import { unwrapList } from '@/utils/apiResponse'
+import { getAllPages } from './pagination'
 
 import type { AbrirCajaPayload, Caja, CerrarCajaPayload, CorteCaja } from '@/types/caja'
 import type { ApiResponse } from '@/types/api'
@@ -131,7 +130,18 @@ export async function getCorteActivo(cajaId: string): Promise<CorteCaja> {
 }
 
 export async function getHistorialCortes(cajaId: string): Promise<CorteCaja[]> {
-  const { data } = await api.get(`/caja/cajas/${cajaId}/cortes/`)
+  const items = await getAllPages<CorteApi>(
+    api,
+    `/caja/cajas/${cajaId}/cortes/`,
+    { page_size: 200 },
+  )
+  return items.map(mapCorte)
+}
 
-  return unwrapList<CorteApi>(data).map(mapCorte)
+export async function activarCaja(id: string): Promise<void> {
+  await api.post(`/cajas/${id}/activar/`)
+}
+
+export async function desactivarCaja(id: string): Promise<void> {
+  await api.post(`/cajas/${id}/desactivar/`)
 }

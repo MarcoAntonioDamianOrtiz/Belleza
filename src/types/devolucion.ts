@@ -1,6 +1,6 @@
-export type TipoDevolucion = 'NORMAL' | 'GARANTIA' | 'EXTRAORDINARIA'
+export type TipoDevolucion = 'NORMAL' | 'DEFECTUOSO' | 'GARANTIA' | 'EXTRAORDINARIA'
 
-export type EstadoDevolucion = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'FINALIZADA'
+export type EstadoDevolucion = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'CANCELADA'
 
 export interface ProductoDevolucion {
   id: string
@@ -26,7 +26,6 @@ export interface Devolucion {
 
 export interface DevolucionPayload {
   venta_id: string
-  metodo_pago_reembolso_id: string
   tipo: TipoDevolucion
   motivo: string
   productos: Array<{

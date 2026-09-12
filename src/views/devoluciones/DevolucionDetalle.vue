@@ -19,8 +19,8 @@ function statusFor(estado: Devolucion['estado']) {
     return { status: 'danger' as const, label: 'Rechazada' }
   }
 
-  if (estado === 'FINALIZADA') {
-    return { status: 'info' as const, label: 'Finalizada' }
+  if (estado === 'CANCELADA') {
+    return { status: 'neutral' as const, label: 'Cancelada' }
   }
 
   return { status: 'warning' as const, label: 'Pendiente' }

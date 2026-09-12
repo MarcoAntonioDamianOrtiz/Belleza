@@ -31,6 +31,7 @@ export interface DetalleVentaProducto {
   producto: string
   variante: string
   cantidad: number
+  cantidadDisponible: number
   precioUnitario: number
   descuento: number
   subtotal: number

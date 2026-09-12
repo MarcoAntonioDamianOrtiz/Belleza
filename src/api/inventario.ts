@@ -1,6 +1,6 @@
 import api from './axios'
+import { getAllPages } from './pagination'
 
-import { unwrapList } from '@/utils/apiResponse'
 
 import type {
   MovimientoInventario,
@@ -31,8 +31,8 @@ function mapMovimiento(item: MovimientoApi): MovimientoInventario {
 }
 
 export async function getMovimientosInventario(): Promise<MovimientoInventario[]> {
-  const { data } = await api.get('/inventario/')
-  return unwrapList<MovimientoApi>(data)
+  const items = await getAllPages<MovimientoApi>(api, '/inventario/', { page_size: 200 })
+  return items
     .map(mapMovimiento)
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
 }

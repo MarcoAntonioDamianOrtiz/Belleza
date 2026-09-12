@@ -8,11 +8,13 @@ interface Props {
   open: boolean
   usuario?: Usuario | null
   loading?: boolean
+  allowAdminCreation?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   usuario: null,
   loading: false,
+  allowAdminCreation: false,
 })
 
 const emit = defineEmits<{
@@ -24,7 +26,7 @@ const emit = defineEmits<{
 <template>
   <BaseModal
     :open="open"
-    :title="props.usuario ? 'Editar usuario' : 'Nuevo empleado'"
+    :title="props.usuario ? 'Editar usuario' : 'Nuevo usuario'"
     max-width="lg"
     @close="emit('close')"
   >
@@ -32,6 +34,7 @@ const emit = defineEmits<{
       :key="props.usuario?.id ?? 'nuevo'"
       :usuario="props.usuario"
       :loading="loading"
+      :allow-admin-creation="props.allowAdminCreation"
       @submit="emit('submit', $event)"
       @cancel="emit('close')"
     />

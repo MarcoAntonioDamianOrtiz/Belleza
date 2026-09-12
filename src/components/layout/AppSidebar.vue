@@ -60,7 +60,7 @@ const navigationGroups = computed(() => {
         { name: 'Garantías', route: '/garantias', icon: ShieldCheckIcon },
         { name: 'Devoluciones', route: '/devoluciones', icon: ArrowPathIcon },
         { name: 'Usuarios', route: '/usuarios', icon: UsersIcon, adminOnly: true },
-        { name: 'Reportes', route: '/reportes', icon: ChartBarIcon, adminOnly: true },
+        { name: 'Reportes', route: '/reportes', icon: ChartBarIcon },
         {
           name: 'Bitácora',
           route: '/bitacora',

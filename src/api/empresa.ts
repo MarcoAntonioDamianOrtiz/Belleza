@@ -9,7 +9,6 @@ interface EmpresaApi {
   rfc?: string | null
   direccion: string
   telefono?: string | null
-  logo?: string | null
   mensaje_ticket: string
   iva: string | number
   dias_devolucion: number
@@ -24,7 +23,6 @@ function mapEmpresa(item: EmpresaApi): Empresa {
     rfc: item.rfc ?? '',
     direccion: item.direccion,
     telefono: item.telefono ?? '',
-    logo: item.logo ?? '',
     mensajeTicket: item.mensaje_ticket,
     iva: Number(item.iva),
     diasDevolucion: Number(item.dias_devolucion),

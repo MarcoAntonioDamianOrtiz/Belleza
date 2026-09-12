@@ -55,16 +55,19 @@ const router = createRouter({
         {
           path: 'inventario/entradas',
           name: 'inventario-entradas',
+          meta: { adminOnly: true },
           component: () => import('@/views/inventario/EntradasView.vue'),
         },
         {
           path: 'inventario/salidas',
           name: 'inventario-salidas',
+          meta: { adminOnly: true },
           component: () => import('@/views/inventario/SalidasView.vue'),
         },
         {
           path: 'inventario/ajustes',
           name: 'inventario-ajustes',
+          meta: { adminOnly: true },
           component: () => import('@/views/inventario/AjustesView.vue'),
         },
         {
@@ -107,9 +110,6 @@ const router = createRouter({
           path: 'reportes',
           name: 'reportes',
           component: () => import('@/views/reportes/ReportesView.vue'),
-          meta: {
-            adminOnly: true,
-          },
         },
         {
           path: 'bitacora',

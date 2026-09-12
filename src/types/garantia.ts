@@ -21,6 +21,7 @@ export interface Garantia {
 
 export interface GarantiaPayload {
   venta_id: string
+  detalle_venta_id: string
   variante_id: string
   cantidad: number
   motivo: string

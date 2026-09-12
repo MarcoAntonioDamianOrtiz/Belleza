@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, NoSymbolIcon, PencilSquareIcon } from '@heroicons/vue/24/outline'
 
 import StatusChip from '@/components/common/StatusChip.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
@@ -11,9 +11,12 @@ import type { Variante } from '@/types/variante'
 
 interface Props {
   variantes: Variante[]
+  canManage?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  canManage: false,
+})
 
 const { page, totalPages, paginatedItems, goToPage } = useClientPagination(
   () => props.variantes,
@@ -22,7 +25,7 @@ const { page, totalPages, paginatedItems, goToPage } = useClientPagination(
 
 const emit = defineEmits<{
   edit: [variante: Variante]
-  delete: [variante: Variante]
+  toggle: [variante: Variante]
 }>()
 
 function stockStatus(variante: Variante) {
@@ -62,6 +65,7 @@ function stockStatus(variante: Variante) {
           <th class="px-4 py-3">Defectuosos</th>
           <th class="px-4 py-3">Mínimo</th>
           <th class="px-4 py-3">Garantía</th>
+          <th class="px-4 py-3">Estado</th>
           <th class="px-4 py-3 text-right">Acciones</th>
         </tr>
       </thead>
@@ -105,8 +109,14 @@ function stockStatus(variante: Variante) {
             <span v-if="variante.garantiaMeses"> {{ variante.garantiaMeses }} meses </span>
             <span v-else class="text-gray-400">Sin garantía</span>
           </td>
+          <td data-label="Estado" class="px-4 py-4">
+            <StatusChip
+              :status="variante.activo ? 'success' : 'neutral'"
+              :label="variante.activo ? 'Activa' : 'Inactiva'"
+            />
+          </td>
           <td data-label="Acciones" class="px-4 py-4">
-            <div class="flex justify-end gap-1">
+            <div v-if="canManage" class="flex justify-end gap-1">
               <button
                 type="button"
                 class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
@@ -117,13 +127,15 @@ function stockStatus(variante: Variante) {
               </button>
               <button
                 type="button"
-                class="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500"
-                aria-label="Desactivar variante"
-                @click="emit('delete', variante)"
+                class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
+                :aria-label="variante.activo ? 'Desactivar variante' : 'Activar variante'"
+                @click="emit('toggle', variante)"
               >
-                <TrashIcon class="h-5 w-5" />
+                <NoSymbolIcon v-if="variante.activo" class="h-5 w-5" />
+                <CheckCircleIcon v-else class="h-5 w-5" />
               </button>
             </div>
+            <span v-else class="text-gray-400">—</span>
           </td>
         </tr>
       </tbody>

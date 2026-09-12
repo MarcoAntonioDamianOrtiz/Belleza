@@ -3,9 +3,11 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import axios from 'axios'
 import {
   BanknotesIcon,
+  CheckCircleIcon,
   ClockIcon,
   LockClosedIcon,
   LockOpenIcon,
+  NoSymbolIcon,
   PlusIcon,
 } from '@heroicons/vue/24/outline'
 
@@ -20,8 +22,10 @@ import StatusChip from '@/components/common/StatusChip.vue'
 
 import {
   abrirCaja,
+  activarCaja,
   cerrarCaja,
   createCaja,
+  desactivarCaja,
   getCajas,
   getCorteActivo,
   getHistorialCortes,
@@ -140,6 +144,27 @@ async function viewHistory(caja: Caja) {
   }
 }
 
+
+async function toggleCajaActiva(caja: Caja) {
+  saving.value = true
+
+  try {
+    if (caja.activa) {
+      await desactivarCaja(caja.id)
+      await showSuccess('Caja desactivada correctamente.')
+    } else {
+      await activarCaja(caja.id)
+      await showSuccess('Caja activada correctamente.')
+    }
+
+    await loadData()
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible cambiar el estado de la caja.'))
+  } finally {
+    saving.value = false
+  }
+}
+
 async function submitModal() {
   saving.value = true
 
@@ -232,14 +257,36 @@ onMounted(loadData)
               Abrir
             </BaseButton>
 
-            <BaseButton v-else variant="danger" @click="closeBox(caja)">
+            <BaseButton
+              v-else-if="authStore.isAdmin || cortesActivos[caja.id]"
+              variant="danger"
+              @click="closeBox(caja)"
+            >
               <LockClosedIcon class="h-4 w-4" />
               Cerrar
             </BaseButton>
 
+            <span
+              v-else
+              class="inline-flex items-center rounded-xl bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700"
+            >
+              En uso por otro usuario
+            </span>
+
             <BaseButton variant="secondary" @click="viewHistory(caja)">
               <ClockIcon class="h-4 w-4" />
               Historial
+            </BaseButton>
+
+            <BaseButton
+              v-if="authStore.isAdmin && caja.estado === 'CERRADA'"
+              variant="secondary"
+              :disabled="saving"
+              @click="toggleCajaActiva(caja)"
+            >
+              <NoSymbolIcon v-if="caja.activa" class="h-4 w-4" />
+              <CheckCircleIcon v-else class="h-4 w-4" />
+              {{ caja.activa ? 'Desactivar' : 'Activar' }}
             </BaseButton>
           </div>
 

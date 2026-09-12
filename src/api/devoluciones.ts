@@ -1,6 +1,7 @@
 import api from './axios'
+import { getAllPages } from './pagination'
 
-import { unwrapData, unwrapList } from '@/utils/apiResponse'
+import { unwrapData } from '@/utils/apiResponse'
 
 import type {
   Devolucion,
@@ -52,8 +53,8 @@ function mapDevolucion(item: DevolucionApi): Devolucion {
 }
 
 export async function getDevoluciones(): Promise<Devolucion[]> {
-  const { data } = await api.get('/devoluciones/')
-  return unwrapList<DevolucionApi>(data).map(mapDevolucion)
+  const items = await getAllPages<DevolucionApi>(api, '/devoluciones/', { page_size: 200 })
+  return items.map(mapDevolucion)
 }
 
 export async function getDevolucion(id: string): Promise<Devolucion> {
@@ -71,7 +72,6 @@ export async function updateDevolucion(
   payload: Partial<{
     tipo: TipoDevolucion
     motivo: string
-    metodo_pago_reembolso_id: string
   }>,
 ): Promise<Devolucion> {
   const { data } = await api.put(`/devoluciones/${id}/`, payload)

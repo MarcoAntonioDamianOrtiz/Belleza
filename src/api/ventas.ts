@@ -1,4 +1,5 @@
 import api from './axios'
+import { getAllPages, getBackendPage } from './pagination'
 
 import type {
   EstadoVenta,
@@ -37,10 +38,34 @@ interface VentaDetalleApi {
     producto: string
     variante: string
     cantidad: number
+    cantidad_disponible: number
     precio_unitario: string | number
     descuento?: string | number
     subtotal: string | number
   }>
+}
+
+function mapVentaResumen(item: VentaResumenApi): VentaResumen {
+  return {
+    id: item.id,
+    folio: item.folio,
+    fecha: item.fecha,
+    usuario: item.usuario,
+    total: Number(item.total),
+    estado: item.estado,
+  }
+}
+
+export async function getVentasPage(page = 1, pageSize = 10) {
+  const result = await getBackendPage<VentaResumenApi>(api, '/ventas/', {
+    page,
+    pageSize,
+  })
+
+  return {
+    ...result,
+    items: result.items.map(mapVentaResumen),
+  }
 }
 
 export async function createVenta(payload: VentaPayload): Promise<VentaCreateResult> {
@@ -49,17 +74,10 @@ export async function createVenta(payload: VentaPayload): Promise<VentaCreateRes
 }
 
 export async function getVentas(): Promise<VentaResumen[]> {
-  const { data } = await api.get<ApiResponse<VentaResumenApi[]>>('/ventas/')
+  const items = await getAllPages<VentaResumenApi>(api, '/ventas/', { page_size: 200 })
 
-  return data.data
-    .map((item) => ({
-      id: item.id,
-      folio: item.folio,
-      fecha: item.fecha,
-      usuario: item.usuario,
-      total: Number(item.total),
-      estado: item.estado,
-    }))
+  return items
+    .map(mapVentaResumen)
     .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
 }
 
@@ -85,6 +103,7 @@ export async function getVenta(id: string): Promise<VentaDetalle> {
       producto: product.producto,
       variante: product.variante,
       cantidad: Number(product.cantidad),
+      cantidadDisponible: Number(product.cantidad_disponible ?? product.cantidad),
       precioUnitario: Number(product.precio_unitario),
       descuento: Number(product.descuento ?? 0),
       subtotal: Number(product.subtotal),
@@ -154,6 +173,7 @@ function mapTicket(id: string, response: { data?: TicketApi } | TicketApi): Tick
         producto: product.producto ?? 'Producto',
         variante: product.variante ?? 'Variante',
         cantidad: Number(product.cantidad ?? 0),
+        cantidadDisponible: Number(product.cantidad ?? 0),
         precioUnitario: Number(product.precio_unitario ?? product.precio ?? 0),
         descuento: 0,
         subtotal: Number(product.subtotal ?? 0),

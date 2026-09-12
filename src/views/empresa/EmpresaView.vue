@@ -32,7 +32,6 @@ const form = reactive({
   rfc: '',
   direccion: '',
   telefono: '',
-  logo: '',
   mensajeTicket: 'Gracias por su compra.',
   iva: 16,
   diasDevolucion: 15,
@@ -60,7 +59,6 @@ function assignCompany(data: Awaited<ReturnType<typeof getEmpresa>>) {
   form.rfc = data.rfc
   form.direccion = data.direccion
   form.telefono = data.telefono
-  form.logo = data.logo
   form.mensajeTicket = data.mensajeTicket
   form.iva = data.iva
   form.diasDevolucion = data.diasDevolucion
@@ -86,20 +84,52 @@ async function loadCompany() {
 }
 
 async function saveSettings() {
-  if (!form.nombre.trim() || !form.direccion.trim()) return
+  if (!form.nombre.trim()) {
+    await showError('Ingresa el nombre del negocio.')
+    return
+  }
+
+  if (!form.direccion.trim()) {
+    await showError('Ingresa la dirección del negocio.')
+    return
+  }
+
+  const rfc = form.rfc.trim().toUpperCase()
+  if (rfc && !/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(rfc)) {
+    await showError('El RFC no tiene un formato válido.')
+    return
+  }
+
+  const telefono = form.telefono.trim()
+  if (telefono && !/^\d{10}$/.test(telefono)) {
+    await showError('El teléfono debe contener exactamente 10 dígitos.')
+    return
+  }
+
+  const iva = Number(form.iva)
+  const diasDevolucion = Number(form.diasDevolucion)
+
+  if (!Number.isFinite(iva) || iva < 0 || iva > 100) {
+    await showError('El IVA debe estar entre 0 y 100.')
+    return
+  }
+
+  if (!Number.isInteger(diasDevolucion) || diasDevolucion < 0) {
+    await showError('Los días permitidos para devolución deben ser un número entero mayor o igual a 0.')
+    return
+  }
 
   saving.value = true
 
   try {
     const payload: EmpresaPayload = {
       nombre: form.nombre.trim(),
-      rfc: form.rfc.trim() || null,
+      rfc: rfc || null,
       direccion: form.direccion.trim(),
-      telefono: form.telefono.trim() || null,
-      logo: form.logo.trim() || null,
+      telefono: telefono || null,
       mensaje_ticket: form.mensajeTicket.trim(),
-      iva: Number(form.iva),
-      dias_devolucion: Number(form.diasDevolucion),
+      iva,
+      dias_devolucion: diasDevolucion,
     }
 
     const result = exists.value ? await updateEmpresa(payload) : await createEmpresa(payload)
@@ -163,11 +193,13 @@ onMounted(loadCompany)
           <div class="grid gap-5 sm:grid-cols-2">
             <BaseInput v-model="form.nombre" label="Nombre del negocio" required />
             <BaseInput v-model="form.rfc" label="RFC" />
-            <BaseInput v-model="form.telefono" type="tel" label="Teléfono" />
             <BaseInput
-              v-model="form.logo"
-              label="Logo (dirección web opcional)"
-              placeholder="https://..."
+              v-model="form.telefono"
+              type="tel"
+              label="Teléfono"
+              inputmode="numeric"
+              maxlength="10"
+              placeholder="10 dígitos"
             />
           </div>
 

@@ -4,7 +4,6 @@ export interface Empresa {
   rfc: string
   direccion: string
   telefono: string
-  logo: string
   mensajeTicket: string
   iva: number
   diasDevolucion: number
@@ -17,7 +16,6 @@ export interface EmpresaPayload {
   rfc?: string | null
   direccion: string
   telefono?: string | null
-  logo?: string | null
   mensaje_ticket: string
   iva: number
   dias_devolucion: number

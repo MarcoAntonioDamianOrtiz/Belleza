@@ -1,4 +1,5 @@
 export type UsuarioRol = 0 | 1 | 2
+export type UsuarioCreationType = 'EMPLEADO' | 'ADMIN'
 
 export interface Usuario {
   id: string
@@ -30,6 +31,7 @@ export interface UsuarioUpdatePayload {
 }
 
 export interface UsuarioFormData {
+  tipo: UsuarioCreationType
   nombre: string
   apellido: string
   usuario: string
