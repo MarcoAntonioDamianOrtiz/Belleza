@@ -12,6 +12,7 @@ interface RetryRequestConfig extends InternalAxiosRequestConfig {
 }
 
 const apiBaseUrl = String(import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+console.log('URL del backend:', apiBaseUrl)
 
 interface RefreshResponse {
   success: boolean
