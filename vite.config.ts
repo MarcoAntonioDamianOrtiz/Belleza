@@ -7,6 +7,13 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
 
+  server: {
+    allowedHosts: [
+      'argued-con-care-seasons.trycloudflare.com',
+      'weed-citations-foster-bracelet.trycloudflare.com' // <-- Added this host
+    ],
+  },
+
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
