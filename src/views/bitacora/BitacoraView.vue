@@ -1,133 +1,109 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-
+import { computed, onMounted, ref } from 'vue'
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BasePagination from '@/components/ui/BasePagination.vue'
 import BaseDateRangeFilter from '@/components/ui/BaseDateRangeFilter.vue'
+import BaseSelect from '@/components/ui/BaseSelect.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
-
-import { getBitacora, getBitacoraPage } from '@/api/bitacora'
+import { getBitacoraPage } from '@/api/bitacora'
+import { getUsuarios } from '@/api/usuarios'
 import { formatDate } from '@/utils/formatDate'
 import { getFriendlyError } from '@/utils/apiError'
-import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 import { showError } from '@/utils/notifications'
-
 import type { BitacoraRegistro } from '@/types/bitacora'
 
+// El backend filtra por UUID, módulo, acción y periodo. La búsqueda libre filtra la página visible.
 const registros = ref<BitacoraRegistro[]>([])
-const searchResults = ref<BitacoraRegistro[]>([])
 const search = ref('')
+const usuario = ref('')
+const modulo = ref('')
+const accion = ref('')
+const dateFrom = ref('')
+const dateTo = ref('')
 const loading = ref(false)
 const page = ref(1)
 const totalPages = ref(1)
-const totalCount = ref(0)
-const pageSize = 10
-const { dateFrom, dateTo } = useDateRangeFilter('30days')
-
-const searchTerm = computed(() => search.value.trim().toLowerCase())
-const searchMode = computed(() => Boolean(searchTerm.value))
-
-const filteredSearchResults = computed(() =>
-  searchResults.value.filter((item) =>
-    [item.modulo, item.accion, item.descripcion, item.usuario].some((value) =>
-      value.toLowerCase().includes(searchTerm.value),
-    ),
-  ),
-)
-
-const searchTotalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredSearchResults.value.length / pageSize)),
-)
+const pageSize = 50
+const nextUrl = ref<string | null>(null)
+const previousUrl = ref<string | null>(null)
+const userOptions = ref<Array<{ label: string; value: string }>>([
+  { label: 'Todos los usuarios', value: '' },
+])
 
 const displayItems = computed(() => {
-  if (!searchMode.value) return registros.value
-
-  const start = (page.value - 1) * pageSize
-  return filteredSearchResults.value.slice(start, start + pageSize)
+  const term = search.value.trim().toLowerCase()
+  if (!term) return registros.value
+  return registros.value.filter((item) =>
+    [item.usuario, item.modulo, item.accion, item.descripcion].some((value) =>
+      value.toLowerCase().includes(term),
+    ),
+  )
 })
-
-const displayTotalPages = computed(() =>
-  searchMode.value ? searchTotalPages.value : totalPages.value,
-)
-
-function dateParams() {
-  const params: Record<string, string> = {}
-
-  if (dateFrom.value) params.fecha_desde = dateFrom.value
-  if (dateTo.value) params.fecha_hasta = dateTo.value
-
-  return params
+function params(): Record<string, string> {
+  const result: Record<string, string> = {}
+  if (usuario.value) result.usuario = usuario.value
+  if (modulo.value.trim()) result.modulo = modulo.value.trim()
+  if (accion.value.trim()) result.accion = accion.value.trim()
+  if (dateFrom.value) result.fecha_desde = dateFrom.value
+  if (dateTo.value) result.fecha_hasta = dateTo.value
+  return result
 }
-
-async function loadData(targetPage = 1) {
+async function loadData(targetPage = 1, pageUrl?: string) {
+  if (loading.value) return
+  if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value) {
+    await showError('La fecha inicial no puede ser posterior a la fecha final.')
+    return
+  }
   loading.value = true
-
   try {
-    const result = await getBitacoraPage(targetPage, pageSize, dateParams())
-
+    const result = await getBitacoraPage(targetPage, pageSize, params(), pageUrl)
     registros.value = result.items
     page.value = result.page
     totalPages.value = result.totalPages
-    totalCount.value = result.count
+    nextUrl.value = result.next
+    previousUrl.value = result.previous
   } catch (error) {
     await showError(getFriendlyError(error, 'No fue posible cargar la bitácora.'))
   } finally {
     loading.value = false
   }
 }
-
-async function loadSearchData() {
-  if (!searchMode.value) {
-    searchResults.value = []
-    page.value = 1
-    await loadData(1)
-    return
-  }
-
-  loading.value = true
-
-  try {
-    searchResults.value = await getBitacora(dateParams())
-    page.value = 1
-  } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible buscar en la bitácora.'))
-  } finally {
-    loading.value = false
-  }
+async function clearFilters() {
+  usuario.value = ''
+  modulo.value = ''
+  accion.value = ''
+  dateFrom.value = ''
+  dateTo.value = ''
+  search.value = ''
+  await loadData(1)
 }
-
-function goToPage(targetPage: number) {
-  if (searchMode.value) {
-    page.value = Math.min(Math.max(targetPage, 1), searchTotalPages.value)
-    return
-  }
-
-  void loadData(targetPage)
+function goToPage(target: number) {
+  if (loading.value || target < 1 || target > totalPages.value || target === page.value) return
+  const next =
+    target === page.value + 1
+      ? nextUrl.value
+      : target === page.value - 1
+        ? previousUrl.value
+        : undefined
+  void loadData(target, next ?? undefined)
 }
-
-let searchTimer: ReturnType<typeof setTimeout> | null = null
-
-watch(search, () => {
-  if (searchTimer) clearTimeout(searchTimer)
-
-  searchTimer = setTimeout(() => {
-    void loadSearchData()
-  }, 300)
-})
-
-watch([dateFrom, dateTo], () => {
-  if (searchMode.value) {
-    void loadSearchData()
-  } else {
-    void loadData(1)
-  }
-})
-
-onMounted(() => {
+async function initialize() {
   void loadData(1)
-})
+  try {
+    const users = await getUsuarios()
+    userOptions.value = [
+      { label: 'Todos los usuarios', value: '' },
+      ...users.map((item) => ({ label: `${item.nombre} ${item.apellido}`.trim(), value: item.id })),
+    ]
+  } catch {
+    // El historial continúa disponible aunque falle la carga del selector.
+  }
+}
+onMounted(initialize)
 </script>
 
 <template>
@@ -141,14 +117,22 @@ onMounted(() => {
       </p>
     </div>
 
-    <BaseDateRangeFilter
-      v-model:from="dateFrom"
-      v-model:to="dateTo"
-      class="mb-4"
-    />
-
+    <BaseDateRangeFilter v-model:from="dateFrom" v-model:to="dateTo" class="mb-4" />
+    <div
+      class="mb-5 grid gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3"
+    >
+      <BaseSelect v-model="usuario" :options="userOptions" label="Usuario" />
+      <BaseInput v-model="modulo" label="Módulo" placeholder="Ej. Ventas" />
+      <BaseInput v-model="accion" label="Acción" placeholder="Ej. CANCELAR_VENTA" />
+      <div class="sm:col-span-2 lg:col-span-3 flex flex-wrap gap-3">
+        <BaseButton :disabled="loading" :loading="loading" @click="loadData(1)">Buscar</BaseButton>
+        <BaseButton variant="secondary" :disabled="loading" @click="clearFilters"
+          >Limpiar</BaseButton
+        >
+      </div>
+    </div>
     <div class="mb-5 max-w-xl">
-      <SearchBar v-model="search" placeholder="Buscar módulo, acción, usuario o descripción..." />
+      <SearchBar v-model="search" placeholder="Filtrar resultados de esta página..." />
     </div>
 
     <BaseLoader v-if="loading" text="Cargando bitácora..." />
@@ -193,8 +177,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <div v-if="displayTotalPages > 1" class="mt-4">
-      <BasePagination :page="page" :total-pages="displayTotalPages" @change="goToPage" />
+    <div v-if="totalPages > 1" class="mt-4">
+      <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
   </section>
 </template>

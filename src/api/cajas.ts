@@ -1,5 +1,5 @@
 import api from './axios'
-import { getAllPages } from './pagination'
+import { getAllPages, getBackendPage } from './pagination'
 
 import type { AbrirCajaPayload, Caja, CerrarCajaPayload, CorteCaja } from '@/types/caja'
 import type { ApiResponse } from '@/types/api'
@@ -9,6 +9,9 @@ interface CajaApi {
   nombre: string
   estado: 'ABIERTA' | 'CERRADA'
   activa: boolean
+  ocupada?: boolean
+  es_mia?: boolean
+  usuario_apertura?: string | null
   fecha_creacion?: string
   fecha_actualizacion?: string
 }
@@ -16,7 +19,9 @@ interface CajaApi {
 interface CorteApi {
   id: string
   caja: string
+  caja_nombre?: string
   usuario: string
+  usuario_nombre?: string
   fecha_inicio: string
   fecha_fin?: string | null
   efectivo_inicial: string | number
@@ -34,6 +39,9 @@ function mapCaja(item: CajaApi): Caja {
     nombre: item.nombre,
     estado: item.estado,
     activa: item.activa,
+    ocupada: item.ocupada,
+    esMia: item.es_mia,
+    usuarioApertura: item.usuario_apertura ?? null,
     fechaCreacion: item.fecha_creacion,
     fechaActualizacion: item.fecha_actualizacion,
   }
@@ -43,7 +51,9 @@ function mapCorte(item: CorteApi): CorteCaja {
   return {
     id: item.id,
     caja: item.caja,
+    cajaNombre: item.caja_nombre,
     usuario: item.usuario,
+    usuarioNombre: item.usuario_nombre,
     fechaInicio: item.fecha_inicio,
     fechaFin: item.fecha_fin ?? null,
     efectivoInicial: Number(item.efectivo_inicial),
@@ -66,20 +76,9 @@ export async function getCajas(): Promise<Caja[]> {
 }
 
 export async function getCajasActivas(): Promise<Caja[]> {
-  const { data } = await api.get<
-    ApiResponse<
-      Array<{
-        id: string
-        nombre: string
-        estado: 'ABIERTA' | 'CERRADA'
-      }>
-    >
-  >('/cajas/activas/')
+  const { data } = await api.get<ApiResponse<CajaApi[]>>('/cajas/activas/')
 
-  return data.data.map((item) => ({
-    ...item,
-    activa: true,
-  }))
+  return data.data.map(mapCaja)
 }
 
 export async function createCaja(nombre: string): Promise<string> {
@@ -130,11 +129,9 @@ export async function getCorteActivo(cajaId: string): Promise<CorteCaja> {
 }
 
 export async function getHistorialCortes(cajaId: string): Promise<CorteCaja[]> {
-  const items = await getAllPages<CorteApi>(
-    api,
-    `/caja/cajas/${cajaId}/cortes/`,
-    { page_size: 200 },
-  )
+  const items = await getAllPages<CorteApi>(api, `/caja/cajas/${cajaId}/cortes/`, {
+    page_size: 200,
+  })
   return items.map(mapCorte)
 }
 
@@ -144,4 +141,30 @@ export async function activarCaja(id: string): Promise<void> {
 
 export async function desactivarCaja(id: string): Promise<void> {
   await api.post(`/cajas/${id}/desactivar/`)
+}
+
+export async function updateCaja(id: string, nombre: string): Promise<void> {
+  await api.patch(`/cajas/${id}/`, { nombre })
+}
+
+export async function getCortesPage(page = 1, pageSize = 50) {
+  const result = await getBackendPage<CorteApi>(api, '/caja/', { page, pageSize })
+  return { ...result, items: result.items.map(mapCorte) }
+}
+
+export interface MovimientoCaja {
+  id: string
+  corte_caja: string
+  metodo_pago: string
+  tipo: 'REEMBOLSO'
+  monto: string
+  devolucion: string
+  observaciones: string
+  usuario: string
+  fecha: string
+}
+export async function getMovimientosCaja(corteId: string): Promise<MovimientoCaja[]> {
+  return getAllPages<MovimientoCaja>(api, `/caja/${encodeURIComponent(corteId)}/movimientos/`, {
+    page_size: 200,
+  })
 }

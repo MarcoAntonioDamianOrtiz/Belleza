@@ -36,12 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = response.data.usuario
       accessToken.value = response.data.access
 
-      saveAuthSession(
-        response.data.access,
-        response.data.refresh,
-        response.data.usuario,
-        remember,
-      )
+      saveAuthSession(response.data.access, response.data.refresh, response.data.usuario, remember)
 
       return response
     } finally {
@@ -64,8 +59,17 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       accessToken.value = getAccessToken()
 
-      if (accessToken.value) {
-        await loadUser()
+      if (accessToken.value || getRefreshToken()) {
+        // /auth/me/ puede responder 401; el interceptor hará un único refresh.
+        if (!accessToken.value && getRefreshToken()) {
+          // El token de acceso vacío no permite renovar a menos que el servidor responda 401.
+          accessToken.value = '__expired__'
+          await loadUser()
+          accessToken.value = getAccessToken()
+        } else {
+          await loadUser()
+          accessToken.value = getAccessToken()
+        }
       }
     } catch {
       clearAuthSession()

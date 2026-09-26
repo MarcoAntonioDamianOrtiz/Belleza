@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import axios from 'axios'
 import { useRoute, useRouter } from 'vue-router'
-import { LockClosedIcon, UserIcon } from '@heroicons/vue/24/outline'
+import { EyeIcon, EyeSlashIcon, UserIcon } from '@heroicons/vue/24/outline'
 
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -16,6 +16,7 @@ const authStore = useAuthStore()
 
 const usuario = ref('')
 const password = ref('')
+const showPassword = ref(false)
 const remember = ref(false)
 const errorMessage = ref('')
 
@@ -36,10 +37,7 @@ async function handleLogin() {
       remember.value,
     )
 
-    const redirect =
-      typeof route.query.redirect === 'string'
-        ? route.query.redirect
-        : '/'
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
 
     await router.replace(redirect)
   } catch (error) {
@@ -60,13 +58,12 @@ async function handleLogin() {
   <div class="w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-md">
     <div class="mb-6 text-center sm:mb-8 md:mb-10 lg:mb-8">
       <div
-        class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#C56B86] text-xl font-bold text-white md:h-16 md:w-16 md:text-2xl lg:h-14 lg:w-14 lg:text-xl">
+        class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#C56B86] text-xl font-bold text-white md:h-16 md:w-16 md:text-2xl lg:h-14 lg:w-14 lg:text-xl"
+      >
         B
       </div>
 
-      <h1 class="text-2xl font-semibold text-gray-900 md:text-3xl lg:text-2xl">
-        Bienvenido
-      </h1>
+      <h1 class="text-2xl font-semibold text-gray-900 md:text-3xl lg:text-2xl">Bienvenido</h1>
 
       <p class="mt-2 px-2 text-sm text-gray-500 md:text-base lg:text-sm">
         Ingresa tus datos para acceder al sistema
@@ -76,17 +73,38 @@ async function handleLogin() {
     <div class="rounded-2xl border border-[#ECECEC] bg-white p-5 shadow-sm sm:p-8 md:p-10 lg:p-8">
       <form class="space-y-5" @submit.prevent="handleLogin">
         <div class="relative">
-          <BaseInput v-model="usuario" label="Usuario" placeholder="Ingresa tu usuario" autocomplete="username"
-            required />
+          <BaseInput
+            v-model="usuario"
+            label="Usuario"
+            placeholder="Ingresa tu usuario"
+            autocomplete="username"
+            required
+          />
 
           <UserIcon class="pointer-events-none absolute right-4 bottom-3 h-5 w-5 text-gray-400" />
         </div>
 
         <div class="relative">
-          <BaseInput v-model="password" label="Contraseña" type="password" placeholder="Ingresa tu contraseña"
-            autocomplete="current-password" required />
+          <BaseInput
+            v-model="password"
+            label="Contraseña"
+            :type="showPassword ? 'text' : 'password'"
+            placeholder="Ingresa tu contraseña"
+            autocomplete="current-password"
+            class="pr-12"
+            required
+          />
 
-          <LockClosedIcon class="pointer-events-none absolute right-4 bottom-3 h-5 w-5 text-gray-400" />
+          <button
+            type="button"
+            class="absolute right-4 bottom-3 inline-flex items-center justify-center text-gray-400 transition hover:text-[#C56B86] focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C56B86]"
+            :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            :aria-pressed="showPassword"
+            @click="showPassword = !showPassword"
+          >
+            <EyeSlashIcon v-if="showPassword" class="h-5 w-5" aria-hidden="true" />
+            <EyeIcon v-else class="h-5 w-5" aria-hidden="true" />
+          </button>
         </div>
 
         <p v-if="errorMessage" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">

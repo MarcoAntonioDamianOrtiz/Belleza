@@ -11,11 +11,11 @@ import type { Variante } from '@/types/variante'
 
 interface Props {
   variantes: Variante[]
-  canManage?: boolean
+  canToggle?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  canManage: false,
+  canToggle: false,
 })
 
 const { page, totalPages, paginatedItems, goToPage } = useClientPagination(
@@ -116,7 +116,7 @@ function stockStatus(variante: Variante) {
             />
           </td>
           <td data-label="Acciones" class="px-4 py-4">
-            <div v-if="canManage" class="flex justify-end gap-1">
+            <div class="flex justify-end gap-1">
               <button
                 type="button"
                 class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
@@ -126,6 +126,7 @@ function stockStatus(variante: Variante) {
                 <PencilSquareIcon class="h-5 w-5" />
               </button>
               <button
+                v-if="canToggle"
                 type="button"
                 class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
                 :aria-label="variante.activo ? 'Desactivar variante' : 'Activar variante'"
@@ -135,7 +136,6 @@ function stockStatus(variante: Variante) {
                 <CheckCircleIcon v-else class="h-5 w-5" />
               </button>
             </div>
-            <span v-else class="text-gray-400">—</span>
           </td>
         </tr>
       </tbody>

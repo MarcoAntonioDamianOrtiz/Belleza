@@ -41,11 +41,13 @@ export async function getBitacoraPage(
   page = 1,
   pageSize = 10,
   params?: Record<string, string | number | boolean | undefined>,
+  nextUrl?: string,
 ) {
   const result = await getBackendPage<BitacoraApi>(api, '/bitacora/', {
     page,
     pageSize,
     params,
+    nextUrl,
   })
 
   return {

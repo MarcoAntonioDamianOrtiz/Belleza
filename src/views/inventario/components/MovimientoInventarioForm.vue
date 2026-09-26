@@ -56,7 +56,14 @@ function submitForm() {
 
   const cantidad = Number(form.cantidad)
 
-  if (cantidad <= 0) return
+  if (
+    !Number.isInteger(cantidad) ||
+    cantidad < (props.tipo === 'ajuste' ? 0 : 1) ||
+    cantidad > 10000
+  )
+    return
+  if (props.tipo === 'ajuste' && cantidad === selectedVariant.value?.stock) return
+  if (props.tipo === 'salida' && cantidad > (selectedVariant.value?.stock ?? 0)) return
 
   emit('submit', {
     varianteId: form.varianteId,
@@ -95,7 +102,7 @@ function submitForm() {
       required
     />
 
-    <BaseInput v-else v-model="form.cantidad" type="number" min="1" required>
+    <BaseInput v-else v-model="form.cantidad" type="number" min="0" required>
       <template #label>
         <span>Stock real</span>
         <HelpTooltip

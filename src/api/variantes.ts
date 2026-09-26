@@ -80,7 +80,11 @@ export async function createVariante(payload: VariantePayload): Promise<Variante
 }
 
 export async function updateVariante(id: string, payload: VariantePayload): Promise<Variante> {
-  const { data } = await api.put(`/variantes/${id}/`, payload)
+  // producto y stock son inmutables desde edición de variantes.
+  const { producto: _producto, stock: _stock, ...editable } = payload
+  void _producto
+  void _stock
+  const { data } = await api.patch(`/variantes/${id}/`, editable)
   return mapVariante(unwrapData<VarianteApi>(data))
 }
 

@@ -1,6 +1,5 @@
 import api from './axios'
-import { getAllPages } from './pagination'
-
+import { getAllPages, getBackendPage } from './pagination'
 
 import type {
   MovimientoInventario,
@@ -11,7 +10,12 @@ import type {
 interface MovimientoApi {
   id: string
   variante: string
-  tipo: 'ENTRADA' | 'SALIDA' | 'AJUSTE'
+  variante_id?: string
+  tipo: MovimientoInventario['tipo']
+  stock_anterior?: number
+  stock_nuevo?: number
+  stock_defectuoso_anterior?: number
+  stock_defectuoso_nuevo?: number
   cantidad: number
   observaciones?: string | null
   usuario: string
@@ -22,6 +26,11 @@ function mapMovimiento(item: MovimientoApi): MovimientoInventario {
   return {
     id: item.id,
     variante: item.variante,
+    varianteId: item.variante_id,
+    stockAnterior: item.stock_anterior,
+    stockNuevo: item.stock_nuevo,
+    stockDefectuosoAnterior: item.stock_defectuoso_anterior,
+    stockDefectuosoNuevo: item.stock_defectuoso_nuevo,
     tipo: item.tipo,
     cantidad: Number(item.cantidad),
     observaciones: item.observaciones ?? '',
@@ -54,4 +63,17 @@ export async function registrarAjuste(payload: MovimientoPayload): Promise<Movim
     observaciones: payload.observaciones,
   })
   return data
+}
+
+export async function getMovimientosInventarioPage(
+  page = 1,
+  pageSize = 50,
+  filtros?: { tipo?: MovimientoInventario['tipo']; variante_id?: string; search?: string },
+) {
+  const result = await getBackendPage<MovimientoApi>(api, '/inventario/', {
+    page,
+    pageSize,
+    params: { ...filtros, search: filtros?.search?.slice(0, 100) },
+  })
+  return { ...result, items: result.items.map(mapMovimiento) }
 }

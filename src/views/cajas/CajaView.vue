@@ -27,6 +27,8 @@ import {
   createCaja,
   desactivarCaja,
   getCajas,
+  getCajasActivas,
+  updateCaja,
   getCorteActivo,
   getHistorialCortes,
 } from '@/api/cajas'
@@ -40,15 +42,18 @@ import { useAuthStore } from '@/stores/auth'
 
 import type { Caja, CorteCaja } from '@/types/caja'
 
-type ModalMode = 'crear' | 'abrir' | 'cerrar'
+type ModalMode = 'crear' | 'editar' | 'abrir' | 'cerrar'
 
 const authStore = useAuthStore()
 
 const cajas = ref<Caja[]>([])
 const cortesActivos = ref<Record<string, CorteCaja>>({})
 const historial = ref<CorteCaja[]>([])
-const { dateFrom: historyDateFrom, dateTo: historyDateTo, matchesDate: matchesHistoryDate } =
-  useDateRangeFilter('30days')
+const {
+  dateFrom: historyDateFrom,
+  dateTo: historyDateTo,
+  matchesDate: matchesHistoryDate,
+} = useDateRangeFilter('30days')
 const filteredHistory = computed(() =>
   historial.value.filter((item) => matchesHistoryDate(item.fechaInicio)),
 )
@@ -71,6 +76,7 @@ const form = reactive({
 
 const modalTitle = computed(() => {
   if (modalMode.value === 'crear') return 'Nueva caja'
+  if (modalMode.value === 'editar') return 'Editar caja'
   if (modalMode.value === 'abrir') return 'Abrir caja'
   return 'Cerrar caja'
 })
@@ -79,9 +85,15 @@ async function loadData() {
   loading.value = true
 
   try {
-    cajas.value = await getCajas()
+    const [allBoxes, operativeBoxes] = await Promise.all([
+      authStore.isAdmin ? getCajas() : getCajasActivas(),
+      getCajasActivas(),
+    ])
+    const byId = new Map(operativeBoxes.map((box) => [box.id, box]))
+    cajas.value = allBoxes.map((box) => ({ ...box, ...byId.get(box.id) }))
 
-    const cajasAbiertas = cajas.value.filter((item) => item.estado === 'ABIERTA')
+    // El backend permite consultar/operar el corte propio, nunca el de otra persona.
+    const cajasAbiertas = cajas.value.filter((item) => item.esMia && item.ocupada)
     const cortesEntries = await Promise.all(
       cajasAbiertas.map(async (caja) => {
         try {
@@ -117,7 +129,15 @@ function openCreate() {
   modalOpen.value = true
 }
 
+function editBox(caja: Caja) {
+  selectedCaja.value = caja
+  form.nombre = caja.nombre
+  modalMode.value = 'editar'
+  modalOpen.value = true
+}
+
 function openBox(caja: Caja) {
+  if (!caja.activa || caja.ocupada) return
   selectedCaja.value = caja
   form.efectivo = ''
   modalMode.value = 'abrir'
@@ -125,6 +145,7 @@ function openBox(caja: Caja) {
 }
 
 function closeBox(caja: Caja) {
+  if (!caja.esMia) return
   selectedCaja.value = caja
   form.efectivo = ''
   modalMode.value = 'cerrar'
@@ -143,7 +164,6 @@ async function viewHistory(caja: Caja) {
     loading.value = false
   }
 }
-
 
 async function toggleCajaActiva(caja: Caja) {
   saving.value = true
@@ -173,6 +193,22 @@ async function submitModal() {
       if (!form.nombre.trim()) return
       await createCaja(form.nombre.trim())
       await showSuccess('Caja creada correctamente.')
+    }
+
+    if (modalMode.value === 'editar' && selectedCaja.value) {
+      if (!form.nombre.trim()) return
+      await updateCaja(selectedCaja.value.id, form.nombre.trim())
+      await showSuccess('Nombre de caja actualizado.')
+    }
+
+    if (
+      (modalMode.value === 'abrir' || modalMode.value === 'cerrar') &&
+      (form.efectivo.trim() === '' ||
+        !Number.isFinite(Number(form.efectivo)) ||
+        Number(form.efectivo) < 0)
+    ) {
+      await showError('Ingresa una cantidad de efectivo válida.')
+      return
     }
 
     if (modalMode.value === 'abrir' && selectedCaja.value) {
@@ -244,12 +280,20 @@ onMounted(loadData)
 
           <h2 class="mt-4 font-semibold text-gray-900">{{ caja.nombre }}</h2>
           <p class="mt-1 text-sm text-gray-500">
-            {{ caja.activa ? 'Disponible' : 'Inactiva' }}
+            {{
+              !caja.activa
+                ? 'Inactiva'
+                : caja.ocupada
+                  ? caja.esMia
+                    ? 'Tu caja abierta'
+                    : 'En uso por otro usuario'
+                  : 'Disponible'
+            }}
           </p>
 
           <div class="mt-5 flex flex-wrap gap-2">
             <BaseButton
-              v-if="caja.estado === 'CERRADA'"
+              v-if="!caja.ocupada && caja.estado === 'CERRADA'"
               :disabled="!caja.activa"
               @click="openBox(caja)"
             >
@@ -258,7 +302,7 @@ onMounted(loadData)
             </BaseButton>
 
             <BaseButton
-              v-else-if="authStore.isAdmin || cortesActivos[caja.id]"
+              v-else-if="caja.esMia && cortesActivos[caja.id]"
               variant="danger"
               @click="closeBox(caja)"
             >
@@ -273,13 +317,20 @@ onMounted(loadData)
               En uso por otro usuario
             </span>
 
+            <BaseButton
+              v-if="authStore.isAdmin && !caja.ocupada"
+              variant="secondary"
+              @click="editBox(caja)"
+            >
+              Editar nombre
+            </BaseButton>
             <BaseButton variant="secondary" @click="viewHistory(caja)">
               <ClockIcon class="h-4 w-4" />
               Historial
             </BaseButton>
 
             <BaseButton
-              v-if="authStore.isAdmin && caja.estado === 'CERRADA'"
+              v-if="authStore.isAdmin && !caja.ocupada && caja.estado === 'CERRADA'"
               variant="secondary"
               :disabled="saving"
               @click="toggleCajaActiva(caja)"
@@ -290,10 +341,7 @@ onMounted(loadData)
             </BaseButton>
           </div>
 
-          <div
-            v-if="cortesActivos[caja.id]"
-            class="mt-5 border-t border-gray-100 pt-4"
-          >
+          <div v-if="cortesActivos[caja.id]" class="mt-5 border-t border-gray-100 pt-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
               Resumen del turno
             </p>
@@ -348,7 +396,6 @@ onMounted(loadData)
         </div>
       </div>
 
-
       <div
         v-if="selectedCaja"
         class="mt-6 overflow-hidden rounded-2xl border border-[#ECECEC] bg-white"
@@ -358,10 +405,7 @@ onMounted(loadData)
         </div>
 
         <div class="border-b border-gray-100 p-4">
-          <BaseDateRangeFilter
-            v-model:from="historyDateFrom"
-            v-model:to="historyDateTo"
-          />
+          <BaseDateRangeFilter v-model:from="historyDateFrom" v-model:to="historyDateTo" />
         </div>
 
         <div class="overflow-x-auto">
@@ -416,7 +460,7 @@ onMounted(loadData)
     <BaseModal :open="modalOpen" :title="modalTitle" max-width="md" @close="modalOpen = false">
       <form class="space-y-5" @submit.prevent="submitModal">
         <BaseInput
-          v-if="modalMode === 'crear'"
+          v-if="modalMode === 'crear' || modalMode === 'editar'"
           v-model="form.nombre"
           label="Nombre de la caja"
           placeholder="Ej. Caja principal"
@@ -434,7 +478,9 @@ onMounted(loadData)
           required
         />
 
-        <div class="mobile-action-row flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row">
+        <div
+          class="mobile-action-row flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row"
+        >
           <BaseButton variant="secondary" @click="modalOpen = false"> Cancelar </BaseButton>
           <BaseButton type="submit" :loading="saving"> Confirmar </BaseButton>
         </div>

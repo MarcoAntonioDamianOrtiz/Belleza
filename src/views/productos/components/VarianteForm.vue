@@ -65,11 +65,42 @@ function submitForm() {
     return
   }
 
+  if (!/^\d{1,100}$/.test(form.codigoBarras.trim())) {
+    formError.value = 'El código de barras solo puede contener números (máximo 100).'
+    return
+  }
+
+  if (!/^[a-zA-Z0-9_-]{1,100}$/.test(form.sku.trim())) {
+    formError.value = 'El SKU solo admite letras, números, guion y guion bajo (máximo 100).'
+    return
+  }
+
+  if (form.nombre.trim().length > 150) {
+    formError.value = 'La variante no puede superar 150 caracteres.'
+    return
+  }
+
   const costo = Number(form.costo)
   const precioMenudeo = Number(form.precioMenudeo)
   const precioMayoreo = Number(form.precioMayoreo)
   const stock = Number(form.stock)
   const stockMinimo = Number(form.stockMinimo)
+  const garantiaMeses =
+    form.garantiaMeses === null || form.garantiaMeses === ''
+      ? null
+      : Number(form.garantiaMeses)
+
+  if (
+    [costo, precioMenudeo, precioMayoreo].some((value) => !Number.isFinite(value) || value < 0)
+  ) {
+    formError.value = 'Los precios y el costo deben ser números iguales o mayores a cero.'
+    return
+  }
+
+  if (garantiaMeses !== null && (!Number.isInteger(garantiaMeses) || garantiaMeses < 0)) {
+    formError.value = 'La garantía debe ser un número entero igual o mayor a cero.'
+    return
+  }
 
   if (precioMenudeo < costo) {
     formError.value = 'El precio de menudeo no puede ser menor al costo.'
@@ -93,15 +124,14 @@ function submitForm() {
 
   emit('submit', {
     nombre: form.nombre.trim(),
-    sku: form.sku.trim(),
+    sku: form.sku.trim().toUpperCase(),
     codigoBarras: form.codigoBarras.trim(),
     costo,
     precioMenudeo,
     precioMayoreo,
     stock,
     stockMinimo,
-    garantiaMeses:
-      form.garantiaMeses === null || form.garantiaMeses === '' ? null : Number(form.garantiaMeses),
+    garantiaMeses,
   })
 }
 </script>

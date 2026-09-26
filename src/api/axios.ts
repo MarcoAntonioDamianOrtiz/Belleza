@@ -5,6 +5,7 @@ import {
   getAccessToken,
   getRefreshToken,
   updateAccessToken,
+  updateRefreshToken,
 } from '@/utils/authStorage'
 
 interface RetryRequestConfig extends InternalAxiosRequestConfig {
@@ -18,6 +19,7 @@ interface RefreshResponse {
   message?: string
   data: {
     access: string
+    refresh?: string
   }
 }
 
@@ -64,7 +66,9 @@ async function obtainNewAccessToken(): Promise<string> {
   const access = response.data.data.access
 
   updateAccessToken(access)
-
+  if (response.data.data.refresh) {
+    updateRefreshToken(response.data.data.refresh)
+  }
   return access
 }
 
@@ -76,8 +80,7 @@ api.interceptors.response.use(
     const isUnauthorized = error.response?.status === 401
 
     const isAuthRequest =
-      request?.url?.includes('/auth/login/') ||
-      request?.url?.includes('/auth/refresh/')
+      request?.url?.includes('/auth/login/') || request?.url?.includes('/auth/refresh/')
 
     if (!isUnauthorized || !request || request._retry || isAuthRequest) {
       return Promise.reject(error)
@@ -86,8 +89,11 @@ api.interceptors.response.use(
     request._retry = true
 
     try {
-      refreshPromise ??= obtainNewAccessToken()
-
+      if (!refreshPromise) {
+        refreshPromise = obtainNewAccessToken().finally(() => {
+          refreshPromise = null
+        })
+      }
       const access = await refreshPromise
 
       request.headers.Authorization = `Bearer ${access}`
@@ -101,8 +107,6 @@ api.interceptors.response.use(
       }
 
       return Promise.reject(refreshError)
-    } finally {
-      refreshPromise = null
     }
   },
 )

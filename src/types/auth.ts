@@ -3,6 +3,10 @@ export type AuthRole = 0 | 1 | 2
 export interface AuthUser {
   id: string
   nombre: string
+  apellido?: string
+  usuario?: string
+  email?: string
+  activo?: boolean
   rol: AuthRole
 }
 

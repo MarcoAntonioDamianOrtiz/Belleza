@@ -11,6 +11,13 @@ import BaseSelect from '@/components/ui/BaseSelect.vue'
 
 import { getReporte, getReportePage } from '@/api/reportes'
 import { getFriendlyError } from '@/utils/apiError'
+import {
+  formatReportCell,
+  getReportLabel,
+  getVisibleReportFields,
+  isDateReportField,
+  isMoneyReportField,
+} from '@/utils/reportDisplay'
 import { showError } from '@/utils/notifications'
 import { useAuthStore } from '@/stores/auth'
 
@@ -72,25 +79,8 @@ watch(reportType, () => {
   totalCount.value = 0
 })
 
-const columns = computed(() => {
-  const keys = new Set<string>()
-
-  for (const row of rows.value) {
-    Object.keys(row).forEach((key) => keys.add(key))
-  }
-
-  return [...keys]
-})
-
-function formatHeader(value: string) {
-  return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-function formatCell(value: unknown): string {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
-}
+// Los IDs del backend se conservan en cada fila, pero no son columnas públicas.
+const columns = computed(() => getVisibleReportFields(rows.value))
 
 async function generateReport(targetPage = 1) {
   if (
@@ -153,20 +143,17 @@ async function exportCsv() {
     const exportRows = await getReporte(reportType.value, params)
     if (!exportRows.length) return
 
-    const headers = [...new Set(exportRows.flatMap((row) => Object.keys(row)))]
+    const headers = getVisibleReportFields(exportRows)
+    const csvCell = (value: string) => `"${value.replaceAll('"', '""')}"`
     const content = [
-      headers.join(','),
+      headers.map((header) => csvCell(getReportLabel(header))).join(','),
       ...exportRows.map((row) =>
-        headers
-          .map((header) => {
-            const value = formatCell(row[header]).replaceAll('"', '""')
-            return `"${value}"`
-          })
-          .join(','),
+        headers.map((header) => csvCell(formatReportCell(header, row[header]))).join(','),
       ),
-    ].join('\n')
+    ].join('\r\n')
 
-    const blob = new Blob([content], {
+    // BOM: Excel muestra correctamente las tildes y la letra ñ.
+    const blob = new Blob(['\uFEFF', content], {
       type: 'text/csv;charset=utf-8;',
     })
     const url = URL.createObjectURL(blob)
@@ -183,7 +170,6 @@ async function exportCsv() {
     exporting.value = false
   }
 }
-
 </script>
 
 <template>
@@ -211,12 +197,7 @@ async function exportCsv() {
           :disabled="!reportUsesDates"
         />
 
-        <BaseInput
-          v-model="endDate"
-          type="date"
-          label="Fecha final"
-          :disabled="!reportUsesDates"
-        />
+        <BaseInput v-model="endDate" type="date" label="Fecha final" :disabled="!reportUsesDates" />
 
         <div class="flex items-end">
           <BaseButton class="w-full" :loading="loading" @click="generateReport(1)">
@@ -243,8 +224,13 @@ async function exportCsv() {
         <table class="mobile-stack-table w-full min-w-[850px] text-left text-sm">
           <thead class="border-b border-gray-200 bg-gray-50">
             <tr class="text-xs font-semibold uppercase text-gray-500">
-              <th v-for="column in columns" :key="column" class="px-5 py-4">
-                {{ formatHeader(column) }}
+              <th
+                v-for="column in columns"
+                :key="column"
+                :class="isMoneyReportField(column) ? 'text-right' : ''"
+                class="px-5 py-4"
+              >
+                {{ getReportLabel(column) }}
               </th>
             </tr>
           </thead>
@@ -254,10 +240,14 @@ async function exportCsv() {
               <td
                 v-for="column in columns"
                 :key="column"
-                :data-label="formatHeader(column)"
+                :data-label="getReportLabel(column)"
+                :class="[
+                  isMoneyReportField(column) ? 'text-right tabular-nums whitespace-nowrap' : '',
+                  isDateReportField(column) ? 'whitespace-nowrap' : '',
+                ]"
                 class="px-5 py-4 text-gray-600"
               >
-                {{ formatCell(row[column]) }}
+                {{ formatReportCell(column, row[column]) }}
               </td>
             </tr>
           </tbody>
@@ -270,16 +260,14 @@ async function exportCsv() {
     </div>
 
     <div
-      v-else
+      v-if="!loading && (!generated || !rows.length)"
       class="mt-6 rounded-2xl border border-[#ECECEC] bg-white p-12 text-center text-gray-500"
     >
       <template v-if="generated">
         No hay resultados para {{ selectedReportLabel.toLowerCase() }}
         <span v-if="reportUsesDates">en el periodo seleccionado</span>.
       </template>
-      <template v-else>
-        Selecciona un reporte y presiona “Generar reporte”.
-      </template>
+      <template v-else> Selecciona un reporte y presiona “Generar reporte”. </template>
     </div>
   </section>
 </template>

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { CheckCircleIcon, NoSymbolIcon, PencilSquareIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import {
+  CheckCircleIcon,
+  NoSymbolIcon,
+  PencilSquareIcon,
+  PlusIcon,
+} from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -11,7 +16,13 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 
-import { activarCategoria, createCategoria, desactivarCategoria, getCategorias, updateCategoria } from '@/api/categorias'
+import {
+  activarCategoria,
+  createCategoria,
+  desactivarCategoria,
+  getCategorias,
+  updateCategoria,
+} from '@/api/categorias'
 import { getFriendlyError } from '@/utils/apiError'
 import { useClientPagination } from '@/composables/useClientPagination'
 import { showError, showSuccess } from '@/utils/notifications'
@@ -142,7 +153,7 @@ onMounted(loadCategorias)
         <p class="mt-1 text-sm text-gray-500">Organiza los productos por categoría.</p>
       </div>
 
-      <BaseButton v-if="authStore.isAdmin" class="mobile-full-button sm:w-auto" @click="openNew">
+      <BaseButton class="mobile-full-button sm:w-auto" @click="openNew">
         <PlusIcon class="h-4 w-4" />
         Nueva categoría
       </BaseButton>
@@ -183,7 +194,7 @@ onMounted(loadCategorias)
                 </span>
               </td>
               <td data-label="Acciones" class="px-5 py-4">
-                <div v-if="authStore.isAdmin" class="flex justify-end gap-1">
+                <div class="flex justify-end gap-1">
                   <button
                     type="button"
                     class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
@@ -196,6 +207,7 @@ onMounted(loadCategorias)
                   <button
                     type="button"
                     class="rounded-lg p-2 text-gray-400 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
+                    v-if="authStore.isAdmin"
                     :aria-label="item.activo ? 'Desactivar categoría' : 'Activar categoría'"
                     @click="requestDelete(item)"
                   >
@@ -203,7 +215,6 @@ onMounted(loadCategorias)
                     <CheckCircleIcon v-else class="h-5 w-5" />
                   </button>
                 </div>
-                <span v-else class="text-gray-400">—</span>
               </td>
             </tr>
 
@@ -240,7 +251,9 @@ onMounted(loadCategorias)
           />
         </div>
 
-        <div class="mobile-action-row flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row">
+        <div
+          class="mobile-action-row flex justify-end gap-3 border-t border-gray-100 pt-5 sm:flex-row"
+        >
           <BaseButton variant="secondary" @click="modalOpen = false"> Cancelar </BaseButton>
           <BaseButton type="submit" :loading="saving">Guardar</BaseButton>
         </div>

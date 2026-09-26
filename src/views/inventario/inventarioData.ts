@@ -41,8 +41,12 @@ export function enrichMovements(
   catalog: CatalogVariant[],
 ): MovimientoVista[] {
   return movimientos.map((item) => {
-    const candidates = catalog.filter((current) => current.variante === item.variante)
-    const variant = candidates.length === 1 ? candidates[0] : undefined
+    const variant = item.varianteId
+      ? catalog.find((current) => current.id === item.varianteId)
+      : (() => {
+          const candidates = catalog.filter((current) => current.variante === item.variante)
+          return candidates.length === 1 ? candidates[0] : undefined
+        })()
 
     return {
       ...item,

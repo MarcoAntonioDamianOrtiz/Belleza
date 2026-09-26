@@ -22,6 +22,7 @@ export interface VariantePayload {
   sku: string
   nombre: string
   stock_minimo: number
+  stock?: number // Únicamente al crear la variante
   costo: number
   precio_menudeo: number
   precio_mayoreo: number

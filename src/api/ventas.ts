@@ -16,6 +16,11 @@ interface VentaResumenApi {
   folio: string
   fecha: string
   usuario: string
+  metodo_pago?: string
+  caja?: string
+  subtotal?: string | number
+  descuento?: string | number
+  iva?: string | number
   total: string | number
   estado: EstadoVenta
 }
@@ -51,6 +56,11 @@ function mapVentaResumen(item: VentaResumenApi): VentaResumen {
     folio: item.folio,
     fecha: item.fecha,
     usuario: item.usuario,
+    metodoPago: item.metodo_pago,
+    caja: item.caja,
+    subtotal: item.subtotal === undefined ? undefined : Number(item.subtotal),
+    descuento: item.descuento === undefined ? undefined : Number(item.descuento),
+    iva: item.iva === undefined ? undefined : Number(item.iva),
     total: Number(item.total),
     estado: item.estado,
   }
@@ -68,9 +78,26 @@ export async function getVentasPage(page = 1, pageSize = 10) {
   }
 }
 
+/** POST /ventas/ devuelve { success, message, data: { id, folio } }.
+ * Se normaliza aquí para no depender de la forma de respuesta en la vista.
+ * Se admite temporalmente venta_id a nivel raíz por compatibilidad.
+ */
+interface VentaCreateApi {
+  success: boolean
+  message?: string
+  data?: { id?: string; folio?: string }
+  venta_id?: string
+  folio?: string
+}
+
 export async function createVenta(payload: VentaPayload): Promise<VentaCreateResult> {
-  const { data } = await api.post<VentaCreateResult>('/ventas/', payload)
-  return data
+  const { data } = await api.post<VentaCreateApi>('/ventas/', payload)
+  return {
+    success: data.success,
+    message: data.message ?? 'Venta registrada correctamente.',
+    venta_id: data.data?.id ?? data.venta_id ?? '',
+    folio: data.data?.folio ?? data.folio ?? '',
+  }
 }
 
 export async function getVentas(): Promise<VentaResumen[]> {
@@ -128,6 +155,7 @@ interface TicketApi {
     folio?: string
     fecha?: string
     metodo_pago?: string
+    estado?: EstadoVenta
   }
   usuario?: {
     nombre?: string
@@ -166,7 +194,7 @@ function mapTicket(id: string, response: { data?: TicketApi } | TicketApi): Tick
       descuento: Number(totals.descuento ?? 0),
       iva: Number(totals.iva ?? 0),
       total: Number(totals.total ?? 0),
-      estado: 'COMPLETADA',
+      estado: venta.estado ?? 'COMPLETADA',
       productos: (item.productos ?? []).map((product) => ({
         detalleId: '',
         varianteId: '',
@@ -191,12 +219,20 @@ function mapTicket(id: string, response: { data?: TicketApi } | TicketApi): Tick
   }
 }
 
+function ticketUrl(id: string): string {
+  // Evita enviar /ventas/undefined/ticket/ cuando el backend responde sin id.
+  if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id ?? '')) {
+    throw new Error('No se recibió un identificador válido para el ticket.')
+  }
+  return `/ventas/${id}/ticket/`
+}
+
 export async function getTicketVenta(id: string): Promise<TicketResultado> {
-  const { data } = await api.get<{ data?: TicketApi } | TicketApi>(`/ventas/${id}/ticket/`)
+  const { data } = await api.get<{ data?: TicketApi } | TicketApi>(ticketUrl(id))
   return mapTicket(id, data)
 }
 
 export async function reprintTicketVenta(id: string): Promise<TicketResultado> {
-  const { data } = await api.get<{ data?: TicketApi } | TicketApi>(`/ventas/${id}/ticket/`)
+  const { data } = await api.get<{ data?: TicketApi } | TicketApi>(ticketUrl(id))
   return mapTicket(id, data)
 }

@@ -47,6 +47,10 @@ export function updateAccessToken(access: string) {
   selectedStorage().setItem(ACCESS_KEY, access)
 }
 
+export function updateRefreshToken(refresh: string) {
+  selectedStorage().setItem(REFRESH_KEY, refresh)
+}
+
 export function updateStoredUser(user: AuthUser) {
   selectedStorage().setItem(USER_KEY, JSON.stringify(user))
 }

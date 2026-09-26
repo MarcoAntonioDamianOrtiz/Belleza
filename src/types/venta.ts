@@ -5,6 +5,7 @@ export interface VarianteVenta {
   sku: string
   codigoBarras: string
   stock: number
+  stockMinimo: number
   precioMenudeo: number
   precioMayoreo: number
 }
@@ -21,6 +22,11 @@ export interface VentaResumen {
   folio: string
   fecha: string
   usuario: string
+  metodoPago?: string
+  caja?: string
+  subtotal?: number
+  descuento?: number
+  iva?: number
   total: number
   estado: EstadoVenta
 }

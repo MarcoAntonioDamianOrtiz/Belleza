@@ -5,6 +5,9 @@ export interface Caja {
   nombre: string
   estado: EstadoCaja
   activa: boolean
+  ocupada?: boolean
+  esMia?: boolean
+  usuarioApertura?: string | null
   fechaCreacion?: string
   fechaActualizacion?: string
 }
@@ -12,7 +15,9 @@ export interface Caja {
 export interface CorteCaja {
   id: string
   caja: string
+  cajaNombre?: string
   usuario: string
+  usuarioNombre?: string
   fechaInicio: string
   fechaFin: string | null
   efectivoInicial: number

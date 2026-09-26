@@ -15,11 +15,11 @@ import VariantesTable from './VariantesTable.vue'
 
 interface Props {
   producto: Producto
-  canManage?: boolean
+  canToggle?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
-  canManage: false,
+  canToggle: false,
 })
 
 const emit = defineEmits<{
@@ -77,7 +77,7 @@ const expanded = ref(false)
         </div>
       </button>
 
-      <div v-if="canManage" class="flex flex-wrap items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <button
           type="button"
           class="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
@@ -88,6 +88,7 @@ const expanded = ref(false)
         </button>
 
         <button
+          v-if="canToggle"
           type="button"
           class="rounded-lg p-2 text-gray-500 hover:bg-[#FBEFF3] hover:text-[#C56B86]"
           :title="producto.activo ? 'Desactivar producto' : 'Activar producto'"
@@ -114,7 +115,7 @@ const expanded = ref(false)
       <VariantesTable
         v-if="producto.variantes.length"
         :variantes="producto.variantes"
-        :can-manage="canManage"
+        :can-toggle="canToggle"
         @edit="emit('editVariant', $event)"
         @toggle="emit('toggleVariant', $event)"
       />

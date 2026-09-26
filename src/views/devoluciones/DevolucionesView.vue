@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import {
   CheckCircleIcon,
   EyeIcon,
+  PencilSquareIcon,
   PlusIcon,
   TrashIcon,
   XCircleIcon,
@@ -25,8 +26,11 @@ import DevolucionDetalle from './DevolucionDetalle.vue'
 import {
   aprobarDevolucion,
   createDevolucion,
+  getDevolucion,
   getDevoluciones,
+  getVentaParaDevolucion,
   rechazarDevolucion,
+  updateDevolucion,
 } from '@/api/devoluciones'
 import { formatDate } from '@/utils/formatDate'
 import { useAuthStore } from '@/stores/auth'
@@ -34,8 +38,11 @@ import { getFriendlyError } from '@/utils/apiError'
 import { useClientPagination } from '@/composables/useClientPagination'
 import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 import { showError, showSuccess } from '@/utils/notifications'
-import { buildVentaOptions, loadSoldVariantOptions, loadVentaCatalog } from '@/utils/ventaOptions'
+import { buildVentaOptions } from '@/utils/ventaOptions'
+import { getVentas } from '@/api/ventas'
 
+import { getMetodosPagoActivos } from '@/api/metodosPago'
+import type { MetodoPagoCatalogo } from '@/types/metodoPago'
 import type { Devolucion, TipoDevolucion } from '@/types/devolucion'
 import type { SoldVariantOption, VentaCatalog } from '@/utils/ventaOptions'
 
@@ -52,12 +59,25 @@ const items = ref<Devolucion[]>([])
 const catalog = ref<VentaCatalog | null>(null)
 const soldVariants = ref<SoldVariantOption[]>([])
 const selectedLines = ref<ReturnLine[]>([])
+const saleAvailability = ref<
+  Array<{
+    detalleId: string
+    producto: string
+    variante: string
+    vendido: number
+    devuelto: number
+    enGarantia: number
+    disponible: number
+  }>
+>([])
+const metodosReembolso = ref<MetodoPagoCatalogo[]>([])
 const search = ref('')
 const statusFilter = ref('TODOS')
 const loading = ref(false)
 const loadingSale = ref(false)
 const saving = ref(false)
 const modalOpen = ref(false)
+const editOpen = ref(false)
 const detailOpen = ref(false)
 const approveOpen = ref(false)
 const rejectOpen = ref(false)
@@ -67,13 +87,24 @@ const { dateFrom, dateTo, matchesDate } = useDateRangeFilter('30days')
 
 const form = reactive({
   ventaId: '',
+  metodoPagoReembolsoId: '',
   tipo: 'NORMAL' as TipoDevolucion,
   motivo: '',
   detalleVentaId: '',
   cantidad: 1,
 })
 
+const editForm = reactive({
+  tipo: 'NORMAL' as TipoDevolucion,
+  motivo: '',
+  metodoPagoReembolsoId: '',
+})
+
 const ventaOptions = computed(() => buildVentaOptions(catalog.value?.ventas ?? []))
+
+const metodoOptions = computed(() =>
+  metodosReembolso.value.map((item) => ({ label: item.nombre, value: item.id })),
+)
 
 const variantOptions = computed(() =>
   soldVariants.value.map((item) => ({
@@ -146,13 +177,15 @@ async function loadData() {
   loading.value = true
 
   try {
-    const [returns, salesCatalog] = await Promise.all([
+    const [returns, ventas, methods] = await Promise.all([
       getDevoluciones(),
-      loadVentaCatalog(),
+      getVentas(),
+      getMetodosPagoActivos(),
     ])
 
     items.value = returns
-    catalog.value = salesCatalog
+    catalog.value = { ventas, variantes: [] }
+    metodosReembolso.value = methods
   } catch (error) {
     await showError(getFriendlyError(error, 'No fue posible cargar las devoluciones.'))
   } finally {
@@ -166,6 +199,7 @@ async function selectSale(value: string | number) {
   form.cantidad = 1
   selectedLines.value = []
   soldVariants.value = []
+  saleAvailability.value = []
   formMessage.value = ''
 
   if (!form.ventaId || !catalog.value) return
@@ -173,11 +207,33 @@ async function selectSale(value: string | number) {
   loadingSale.value = true
 
   try {
-    const { opciones } = await loadSoldVariantOptions(form.ventaId, catalog.value)
+    const venta = catalog.value.ventas.find((item) => item.id === form.ventaId)
+    if (!venta) throw new Error('Selecciona una venta válida.')
+    const respuesta = await getVentaParaDevolucion(venta.folio)
+    const opciones: SoldVariantOption[] = respuesta.productos
+      .filter((item) => item.disponible_devolucion > 0)
+      .map((item) => ({
+        label: `${item.producto} - ${item.variante} · ${item.disponible_devolucion} disponibles`,
+        value: item.variante_id,
+        detalleVentaId: item.detalle_venta_id,
+        cantidadVendida: item.vendido,
+        cantidadDisponible: item.disponible_devolucion,
+        garantiaMeses: null,
+        garantiaConocida: false,
+      }))
     soldVariants.value = opciones
+    saleAvailability.value = respuesta.productos.map((item) => ({
+      detalleId: item.detalle_venta_id,
+      producto: item.producto,
+      variante: item.variante,
+      vendido: item.vendido,
+      devuelto: item.devuelto,
+      enGarantia: item.en_garantia,
+      disponible: item.disponible_devolucion,
+    }))
 
     if (!opciones.length) {
-      formMessage.value = 'No fue posible identificar productos disponibles en esta venta.'
+      formMessage.value = 'Esta venta no tiene unidades disponibles para devolver.'
     }
   } catch (error) {
     formMessage.value = getFriendlyError(error, 'No fue posible cargar los productos de la venta.')
@@ -188,6 +244,7 @@ async function selectSale(value: string | number) {
 
 function openCreate() {
   form.ventaId = ''
+  form.metodoPagoReembolsoId = ''
   form.tipo = 'NORMAL'
   form.motivo = ''
   form.detalleVentaId = ''
@@ -198,11 +255,51 @@ function openCreate() {
   modalOpen.value = true
 }
 
-function openDetail(item: Devolucion) {
-  selected.value = item
-  detailOpen.value = true
+async function openDetail(item: Devolucion) {
+  try {
+    selected.value = await getDevolucion(item.id)
+    detailOpen.value = true
+  } catch (error) {
+    await showError(getFriendlyError(error, 'No fue posible consultar la devolución.'))
+  }
 }
 
+function openEdit(item: Devolucion) {
+  if (item.estado !== 'PENDIENTE') return
+  selected.value = item
+  editForm.tipo = item.tipo
+  editForm.motivo = item.motivo
+  editForm.metodoPagoReembolsoId =
+    metodosReembolso.value.find(
+      (method) => method.nombre.toLowerCase() === item.metodoPagoReembolso.toLowerCase(),
+    )?.id ?? ''
+  formMessage.value = ''
+  editOpen.value = true
+}
+
+async function saveEdit() {
+  if (!selected.value || saving.value) return
+  if (!editForm.motivo.trim() || !editForm.metodoPagoReembolsoId) {
+    formMessage.value = 'Indica el motivo y selecciona un método de reembolso activo.'
+    return
+  }
+  saving.value = true
+  formMessage.value = ''
+  try {
+    await updateDevolucion(selected.value.id, {
+      tipo: editForm.tipo,
+      motivo: editForm.motivo.trim(),
+      metodo_pago_reembolso_id: editForm.metodoPagoReembolsoId,
+    })
+    editOpen.value = false
+    await showSuccess('Devolución actualizada correctamente.')
+    await loadData()
+  } catch (error) {
+    formMessage.value = getFriendlyError(error, 'No fue posible actualizar la devolución.')
+  } finally {
+    saving.value = false
+  }
+}
 
 function dismissActiveInput() {
   const activeElement = document.activeElement
@@ -218,7 +315,7 @@ function addReturnLine() {
   const variant = selectedSoldVariant.value
   const quantity = Number(form.cantidad)
 
-  if (!variant || quantity <= 0) {
+  if (!variant || !Number.isInteger(quantity) || quantity <= 0) {
     formMessage.value = 'Selecciona un producto e indica una cantidad válida.'
     return
   }
@@ -228,7 +325,9 @@ function addReturnLine() {
     return
   }
 
-  const existing = selectedLines.value.find((item) => item.detalleVentaId === variant.detalleVentaId)
+  const existing = selectedLines.value.find(
+    (item) => item.detalleVentaId === variant.detalleVentaId,
+  )
 
   if (existing) {
     existing.cantidad = quantity
@@ -237,7 +336,7 @@ function addReturnLine() {
       detalleVentaId: variant.detalleVentaId,
       label: variant.label,
       cantidad: quantity,
-      cantidadVendida: variant.cantidadDisponible,
+      cantidadVendida: variant.cantidadVendida,
     })
   }
 
@@ -251,7 +350,12 @@ function removeReturnLine(detalleVentaId: string) {
 }
 
 async function saveReturn() {
-  if (!form.ventaId || !form.motivo.trim() || !selectedLines.value.length) {
+  if (
+    !form.ventaId ||
+    !form.metodoPagoReembolsoId ||
+    !form.motivo.trim() ||
+    !selectedLines.value.length
+  ) {
     formMessage.value = 'Completa la venta, los productos y el motivo.'
     return
   }
@@ -264,6 +368,7 @@ async function saveReturn() {
       venta_id: form.ventaId,
       tipo: form.tipo,
       motivo: form.motivo.trim(),
+      metodo_pago_reembolso_id: form.metodoPagoReembolsoId,
       productos: selectedLines.value.map((item) => ({
         detalle_venta_id: item.detalleVentaId,
         cantidad: item.cantidad,
@@ -347,11 +452,7 @@ onMounted(loadData)
       </BaseButton>
     </div>
 
-    <BaseDateRangeFilter
-      v-model:from="dateFrom"
-      v-model:to="dateTo"
-      class="mb-4"
-    />
+    <BaseDateRangeFilter v-model:from="dateFrom" v-model:to="dateTo" class="mb-4" />
 
     <div class="mb-5 flex flex-col gap-3 lg:flex-row">
       <div class="w-full max-w-xl">
@@ -384,9 +485,13 @@ onMounted(loadData)
               <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
-              <td data-label="Venta" class="px-5 py-4 font-medium text-gray-900">{{ item.ventaFolio }}</td>
+              <td data-label="Venta" class="px-5 py-4 font-medium text-gray-900">
+                {{ item.ventaFolio }}
+              </td>
               <td data-label="Tipo" class="px-5 py-4 text-gray-600">{{ item.tipo }}</td>
-              <td data-label="Motivo" class="max-w-xs truncate px-5 py-4 text-gray-600">{{ item.motivo }}</td>
+              <td data-label="Motivo" class="max-w-xs truncate px-5 py-4 text-gray-600">
+                {{ item.motivo }}
+              </td>
               <td data-label="Estado" class="px-5 py-4">
                 <StatusChip
                   :status="statusFor(item.estado).status"
@@ -402,6 +507,16 @@ onMounted(loadData)
                     @click="openDetail(item)"
                   >
                     <EyeIcon class="h-5 w-5" />
+                  </button>
+
+                  <button
+                    v-if="item.estado === 'PENDIENTE'"
+                    type="button"
+                    class="rounded-lg p-2 text-gray-400 hover:bg-gray-100"
+                    aria-label="Editar devolución"
+                    @click="openEdit(item)"
+                  >
+                    <PencilSquareIcon class="h-5 w-5" />
                   </button>
 
                   <button
@@ -459,6 +574,17 @@ onMounted(loadData)
           required
         />
 
+        <BaseSelect
+          v-model="form.metodoPagoReembolsoId"
+          label="Método de reembolso"
+          :options="metodoOptions"
+          placeholder="Selecciona cómo se realizará el reembolso"
+          required
+        />
+        <p v-if="!metodoOptions.length" class="text-sm text-amber-700">
+          No hay métodos de reembolso disponibles. Solicita su activación.
+        </p>
+
         <BaseLoader v-if="loadingSale" text="Cargando productos de la venta..." />
 
         <div v-else class="grid gap-4 md:grid-cols-[minmax(0,1fr)_140px_auto] md:items-end">
@@ -487,6 +613,34 @@ onMounted(loadData)
             <PlusIcon class="h-4 w-4" />
             Agregar producto
           </BaseButton>
+        </div>
+
+        <div
+          v-if="saleAvailability.length"
+          class="rounded-xl border border-gray-200 bg-gray-50 p-4"
+        >
+          <p class="mb-3 text-sm font-semibold text-gray-800">Disponibilidad de la venta</p>
+          <div
+            v-for="line in saleAvailability"
+            :key="line.detalleId"
+            class="border-t border-gray-200 py-3 text-sm"
+          >
+            <p class="font-medium text-gray-900">{{ line.producto }} · {{ line.variante }}</p>
+            <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-gray-600 sm:grid-cols-4">
+              <span>Vendidas: {{ line.vendido }}</span>
+              <span>Devueltas: {{ line.devuelto }}</span>
+              <span>En garantía: {{ line.enGarantia }}</span>
+              <span
+                :class="
+                  line.disponible > 0
+                    ? 'font-semibold text-green-700'
+                    : 'font-semibold text-red-600'
+                "
+              >
+                Disponibles: {{ line.disponible }}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div v-if="selectedLines.length" class="divide-y divide-gray-100 rounded-xl border">
@@ -529,6 +683,43 @@ onMounted(loadData)
         <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
           <BaseButton variant="secondary" @click="modalOpen = false">Cancelar</BaseButton>
           <BaseButton type="submit" :loading="saving">Registrar</BaseButton>
+        </div>
+      </form>
+    </BaseModal>
+
+    <BaseModal
+      :open="editOpen"
+      title="Editar devolución pendiente"
+      max-width="lg"
+      @close="editOpen = false"
+    >
+      <form class="space-y-5" @submit.prevent="saveEdit">
+        <p class="text-sm text-gray-600">
+          Venta {{ selected?.ventaFolio }}. Los productos y las cantidades no se pueden modificar.
+        </p>
+        <BaseSelect v-model="editForm.tipo" label="Tipo de devolución" :options="typeOptions" required />
+        <BaseSelect
+          v-model="editForm.metodoPagoReembolsoId"
+          label="Método de reembolso"
+          :options="metodoOptions"
+          placeholder="Selecciona un método activo"
+          required
+        />
+        <div>
+          <label class="mb-2 block text-sm font-medium text-gray-700">Motivo de la devolución</label>
+          <textarea
+            v-model="editForm.motivo"
+            rows="4"
+            required
+            class="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#C56B86] focus:ring-2 focus:ring-[#C56B86]/15"
+          />
+        </div>
+        <p v-if="formMessage" class="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {{ formMessage }}
+        </p>
+        <div class="flex justify-end gap-3 border-t border-gray-100 pt-5">
+          <BaseButton type="button" variant="secondary" @click="editOpen = false">Cancelar</BaseButton>
+          <BaseButton type="submit" :loading="saving">Guardar cambios</BaseButton>
         </div>
       </form>
     </BaseModal>

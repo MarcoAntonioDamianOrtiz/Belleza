@@ -35,6 +35,7 @@ const variantCount = ref(0)
 const resumen = ref<ResumenDia | null>(null)
 const lowStockRows = ref<Array<Record<string, unknown>>>([])
 const lowStockCount = ref(0)
+const lowStockError = ref(false)
 const loading = ref(false)
 
 const lowStock = computed<LowStockItem[]>(() =>
@@ -68,8 +69,8 @@ const stats = computed(() => [
   },
   {
     title: 'Stock bajo',
-    value: String(lowStockCount.value),
-    detail: 'Requieren atención',
+    value: lowStockError.value ? '—' : String(lowStockCount.value),
+    detail: lowStockError.value ? 'No disponible' : 'Requieren atención',
     icon: ArchiveBoxIcon,
   },
 ])
@@ -78,22 +79,32 @@ const recentSales = computed(() => ventas.value.slice(0, 6))
 
 async function loadData() {
   loading.value = true
+  lowStockError.value = false
 
   try {
-    const [salesPage, variantsPage, daySummary, lowStockPage] = await Promise.all([
+    const [salesPage, variantsPage, daySummary, lowStockPage] = await Promise.allSettled([
       getVentasPage(1, 6),
       getVariantesPage(1, 1),
       getResumenDia(),
       getReportePage('stock-bajo', {}, 1, 6),
     ])
 
-    ventas.value = salesPage.items
-    variantCount.value = variantsPage.count
-    resumen.value = daySummary
-    lowStockRows.value = lowStockPage.items
-    lowStockCount.value = lowStockPage.count
-  } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible cargar el resumen del sistema.'))
+    if (salesPage.status === 'fulfilled') ventas.value = salesPage.value.items
+    if (variantsPage.status === 'fulfilled') variantCount.value = variantsPage.value.count
+    if (daySummary.status === 'fulfilled') resumen.value = daySummary.value
+    if (lowStockPage.status === 'fulfilled') {
+      lowStockRows.value = lowStockPage.value.items
+      lowStockCount.value = lowStockPage.value.count
+    } else {
+      lowStockError.value = true
+    }
+
+    const failed = [salesPage, variantsPage, daySummary, lowStockPage].find(
+      (result) => result.status === 'rejected',
+    )
+    if (failed?.status === 'rejected') {
+      await showError(getFriendlyError(failed.reason, 'No fue posible cargar todos los indicadores.'))
+    }
   } finally {
     loading.value = false
   }
@@ -236,7 +247,10 @@ onMounted(loadData)
               />
             </div>
 
-            <p v-if="!lowStock.length" class="px-5 py-8 text-center text-sm text-gray-500">
+            <p v-if="lowStockError" class="px-5 py-8 text-center text-sm text-amber-700">
+              No fue posible consultar las alertas de stock.
+            </p>
+            <p v-else-if="!lowStock.length" class="px-5 py-8 text-center text-sm text-gray-500">
               No hay productos con stock bajo.
             </p>
           </div>

@@ -32,6 +32,9 @@ const typeOptions = [
   { label: 'Entradas', value: 'ENTRADA' },
   { label: 'Salidas', value: 'SALIDA' },
   { label: 'Ajustes', value: 'AJUSTE' },
+  { label: 'Devoluciones', value: 'DEVOLUCION' },
+  { label: 'Garantías', value: 'GARANTIA' },
+  { label: 'Cambios de producto', value: 'CAMBIO_PRODUCTO' },
 ]
 
 const filtered = computed(() => {
@@ -59,11 +62,19 @@ function statusFor(type: TipoMovimientoInventario) {
     return { status: 'danger' as const, label: 'Salida' }
   }
 
-  return { status: 'info' as const, label: 'Ajuste' }
+  const labels: Record<TipoMovimientoInventario, string> = {
+    ENTRADA: 'Entrada',
+    SALIDA: 'Salida',
+    AJUSTE: 'Ajuste',
+    DEVOLUCION: 'Devolución',
+    GARANTIA: 'Garantía',
+    CAMBIO_PRODUCTO: 'Cambio de producto',
+  }
+  return { status: 'info' as const, label: labels[type] }
 }
 
 function quantityLabel(item: MovimientoVista) {
-  if (item.tipo === 'ENTRADA') return `+${item.cantidad}`
+  if (item.tipo === 'ENTRADA' || item.tipo === 'DEVOLUCION') return `+${item.cantidad}`
   if (item.tipo === 'SALIDA') return `-${item.cantidad}`
   return String(item.cantidad)
 }
@@ -106,11 +117,7 @@ onMounted(loadData)
       </RouterLink>
     </div>
 
-    <BaseDateRangeFilter
-      v-model:from="dateFrom"
-      v-model:to="dateTo"
-      class="mb-4"
-    />
+    <BaseDateRangeFilter v-model:from="dateFrom" v-model:to="dateTo" class="mb-4" />
 
     <div class="mb-5 flex flex-col gap-3 md:flex-row md:items-center">
       <div class="w-full max-w-xl">

@@ -72,6 +72,7 @@ export async function updateDevolucion(
   payload: Partial<{
     tipo: TipoDevolucion
     motivo: string
+    metodo_pago_reembolso_id: string
   }>,
 ): Promise<Devolucion> {
   const { data } = await api.put(`/devoluciones/${id}/`, payload)
@@ -86,4 +87,27 @@ export async function aprobarDevolucion(id: string): Promise<Devolucion> {
 export async function rechazarDevolucion(id: string): Promise<Devolucion> {
   const { data } = await api.post(`/devoluciones/${id}/rechazar/`)
   return mapDevolucion(unwrapData<DevolucionApi>(data))
+}
+
+export interface VentaDevolucionProducto {
+  detalle_venta_id: string
+  variante_id: string
+  producto: string
+  variante: string
+  vendido: number
+  devuelto: number
+  en_garantia: number
+  disponible_devolucion: number
+}
+export interface VentaParaDevolucion {
+  folio: string
+  fecha: string
+  usuario: string
+  estado: string
+  metodo_pago: string
+  productos: VentaDevolucionProducto[]
+}
+export async function getVentaParaDevolucion(folio: string): Promise<VentaParaDevolucion> {
+  const { data } = await api.get(`/devoluciones/ventas/${encodeURIComponent(folio.trim())}/`)
+  return unwrapData<VentaParaDevolucion>(data)
 }

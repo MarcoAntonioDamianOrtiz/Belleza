@@ -28,6 +28,7 @@ export interface DevolucionPayload {
   venta_id: string
   tipo: TipoDevolucion
   motivo: string
+  metodo_pago_reembolso_id: string
   productos: Array<{
     detalle_venta_id: string
     cantidad: number

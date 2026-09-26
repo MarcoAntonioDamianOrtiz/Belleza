@@ -1,7 +1,6 @@
 import api from './axios'
 import { getAllPages } from './pagination'
 
-
 import type {
   Usuario,
   UsuarioCreatePayload,
@@ -51,7 +50,7 @@ export async function createAdmin(payload: UsuarioCreatePayload): Promise<void> 
 }
 
 export async function updateUsuario(id: string, payload: UsuarioUpdatePayload): Promise<void> {
-  await api.patch(`/usuarios/${id}/`, payload)
+  await api.put(`/usuarios/${id}/`, payload)
 }
 
 export async function deactivateUsuario(id: string): Promise<void> {

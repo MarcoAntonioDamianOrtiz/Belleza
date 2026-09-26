@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import StatusChip from '@/components/common/StatusChip.vue'
 import { formatDate } from '@/utils/formatDate'
+import { formatCurrency } from '@/utils/formatCurrency'
 
 import type { Devolucion } from '@/types/devolucion'
 
@@ -50,6 +51,21 @@ function statusFor(estado: Devolucion['estado']) {
       </div>
 
       <div>
+        <dt class="text-xs uppercase text-gray-400">Registrada por</dt>
+        <dd class="mt-1 break-words text-gray-700">{{ devolucion.usuario }}</dd>
+      </div>
+
+      <div>
+        <dt class="text-xs uppercase text-gray-400">Método de reembolso</dt>
+        <dd class="mt-1 break-words text-gray-700">{{ devolucion.metodoPagoReembolso }}</dd>
+      </div>
+
+      <div>
+        <dt class="text-xs uppercase text-gray-400">Total devuelto</dt>
+        <dd class="mt-1 font-medium text-gray-900">{{ formatCurrency(devolucion.totalDevuelto) }}</dd>
+      </div>
+
+      <div>
         <dt class="text-xs uppercase text-gray-400">Estado</dt>
         <dd class="mt-1">
           <StatusChip
@@ -74,8 +90,9 @@ function statusFor(estado: Devolucion['estado']) {
           class="responsive-detail-row flex items-center justify-between gap-2 p-4 text-sm sm:gap-4"
         >
           <span class="text-gray-700"> {{ item.producto }} - {{ item.variante }} </span>
-          <span class="font-medium text-gray-900">
-            {{ item.cantidad }}
+          <span class="text-right font-medium text-gray-900">
+            {{ item.cantidad }} × {{ formatCurrency(item.precioOriginal) }}<br />
+            Subtotal: {{ formatCurrency(item.subtotal) }}
           </span>
         </div>
 

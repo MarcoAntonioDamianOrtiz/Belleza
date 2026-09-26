@@ -18,11 +18,8 @@ import { loadInventoryCatalog } from './inventarioData'
 import { getFriendlyError } from '@/utils/apiError'
 import { useClientPagination } from '@/composables/useClientPagination'
 import { showError } from '@/utils/notifications'
-import { useAuthStore } from '@/stores/auth'
 
 import type { CatalogVariant } from './inventarioData'
-
-const authStore = useAuthStore()
 
 const search = ref('')
 const loading = ref(false)
@@ -78,22 +75,22 @@ onMounted(loadData)
       <p class="mt-1 text-sm text-gray-500">Consulta el stock y administra los movimientos.</p>
     </div>
 
-    <div :class="['mb-6 grid gap-3', authStore.isAdmin ? 'sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 sm:max-w-sm']">
-      <RouterLink v-if="authStore.isAdmin" to="/inventario/entradas">
+    <div class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <RouterLink to="/inventario/entradas">
         <BaseButton variant="secondary" class="w-full">
           <ArrowDownTrayIcon class="h-5 w-5" />
           Entradas
         </BaseButton>
       </RouterLink>
 
-      <RouterLink v-if="authStore.isAdmin" to="/inventario/salidas">
+      <RouterLink to="/inventario/salidas">
         <BaseButton variant="secondary" class="w-full">
           <ArrowUpTrayIcon class="h-5 w-5" />
           Salidas
         </BaseButton>
       </RouterLink>
 
-      <RouterLink v-if="authStore.isAdmin" to="/inventario/ajustes">
+      <RouterLink to="/inventario/ajustes">
         <BaseButton variant="secondary" class="w-full">
           <AdjustmentsHorizontalIcon class="h-5 w-5" />
           Ajustes

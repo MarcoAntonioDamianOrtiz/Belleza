@@ -44,7 +44,7 @@ function getTitle() {
       v-if="mode === 'producto'"
       :key="producto?.id ?? 'new-product'"
       :producto="producto"
-      :categorias="categorias"
+      :categorias="categorias.filter((categoria) => categoria.activo)"
       @submit="emit('submitProduct', $event)"
       @cancel="emit('close')"
     />

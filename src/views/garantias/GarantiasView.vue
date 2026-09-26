@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { CheckCircleIcon, EyeIcon, PlusIcon, XCircleIcon } from '@heroicons/vue/24/outline'
+import {
+  CheckCircleIcon,
+  EyeIcon,
+  PencilSquareIcon,
+  PlusIcon,
+  XCircleIcon,
+} from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -21,6 +27,7 @@ import {
   createGarantia,
   finalizarGarantia,
   getGarantias,
+  updateGarantia,
   rechazarGarantia,
 } from '@/api/garantias'
 import { formatDate } from '@/utils/formatDate'
@@ -34,7 +41,7 @@ import { buildVentaOptions, loadSoldVariantOptions, loadVentaCatalog } from '@/u
 import type { Garantia, ResolucionGarantia } from '@/types/garantia'
 import type { SoldVariantOption, VentaCatalog } from '@/utils/ventaOptions'
 
-type ActionMode = 'crear' | 'aprobar'
+type ActionMode = 'crear' | 'editar' | 'aprobar'
 
 const authStore = useAuthStore()
 
@@ -94,7 +101,11 @@ const resolutionOptions = [
 
 const replacementVariantOptions = computed(() =>
   (catalog.value?.variantes ?? [])
-    .filter((item) => item.activo && item.stock > 0)
+    .filter(
+      (item) =>
+        item.activo &&
+        item.stock >= Number(selected.value?.cantidad ?? 1),
+    )
     .map((item) => ({ label: `${item.nombre} · Stock ${item.stock}`, value: item.id })),
 )
 
@@ -190,6 +201,21 @@ function openCreate() {
   modalOpen.value = true
 }
 
+function isMine(item: Garantia) {
+  const current = authStore.user
+  if (!current) return false
+  const currentName = `${current.nombre} ${current.apellido ?? ''}`.trim().toLowerCase()
+  return item.usuario.trim().toLowerCase() === currentName
+}
+function openEdit(item: Garantia) {
+  if (item.estado !== 'PENDIENTE' || !isMine(item)) return
+  actionMode.value = 'editar'
+  selected.value = item
+  form.motivo = item.motivo
+  formMessage.value = ''
+  modalOpen.value = true
+}
+
 function openApprove(item: Garantia) {
   actionMode.value = 'aprobar'
   selected.value = item
@@ -205,12 +231,29 @@ function openDetail(item: Garantia) {
 }
 
 async function submitModal() {
-  if (actionMode.value === 'crear' && (!form.ventaId || !form.varianteId || !form.motivo.trim() || Number(form.cantidad) < 1)) {
+  if (
+    actionMode.value === 'crear' &&
+    (!form.ventaId ||
+      !form.varianteId ||
+      !form.motivo.trim() ||
+      !Number.isInteger(Number(form.cantidad)) ||
+      Number(form.cantidad) < 1 ||
+      Number(form.cantidad) > Number(selectedSoldVariant.value?.cantidadDisponible ?? 0))
+  ) {
     formMessage.value = 'Completa la venta, el producto, la cantidad y el motivo.'
     return
   }
 
-  if (actionMode.value === 'aprobar' && form.resolucion === 'CAMBIO_PRODUCTO' && !form.varianteNuevaId) {
+  if (actionMode.value === 'editar' && !form.motivo.trim()) {
+    formMessage.value = 'Describe el motivo de la garantía.'
+    return
+  }
+
+  if (
+    actionMode.value === 'aprobar' &&
+    form.resolucion === 'CAMBIO_PRODUCTO' &&
+    !form.varianteNuevaId
+  ) {
     formMessage.value = 'Selecciona el producto que se entregará como cambio.'
     return
   }
@@ -236,11 +279,13 @@ async function submitModal() {
       })
 
       await showSuccess('Solicitud de garantía registrada correctamente.')
+    } else if (actionMode.value === 'editar' && selected.value) {
+      await updateGarantia(selected.value.id, form.motivo.trim())
+      await showSuccess('Garantía actualizada correctamente.')
     } else if (selected.value) {
       await aprobarGarantia(selected.value.id, {
         resolucion: form.resolucion,
-        variante_nueva_id:
-          form.resolucion === 'CAMBIO_PRODUCTO' ? form.varianteNuevaId : undefined,
+        variante_nueva_id: form.resolucion === 'CAMBIO_PRODUCTO' ? form.varianteNuevaId : undefined,
         observaciones: form.observaciones.trim(),
       })
 
@@ -321,11 +366,7 @@ onMounted(loadData)
       </BaseButton>
     </div>
 
-    <BaseDateRangeFilter
-      v-model:from="dateFrom"
-      v-model:to="dateTo"
-      class="mb-4"
-    />
+    <BaseDateRangeFilter v-model:from="dateFrom" v-model:to="dateTo" class="mb-4" />
 
     <div class="mb-5 flex flex-col gap-3 lg:flex-row">
       <div class="w-full max-w-xl">
@@ -361,7 +402,9 @@ onMounted(loadData)
               <td data-label="Venta" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.ventaFolio }}
               </td>
-              <td data-label="Producto" class="px-5 py-4 text-gray-600">{{ item.producto }} - {{ item.variante }}</td>
+              <td data-label="Producto" class="px-5 py-4 text-gray-600">
+                {{ item.producto }} - {{ item.variante }}
+              </td>
               <td data-label="Motivo" class="max-w-xs truncate px-5 py-4 text-gray-600">
                 {{ item.motivo }}
               </td>
@@ -382,6 +425,15 @@ onMounted(loadData)
                     <EyeIcon class="h-5 w-5" />
                   </button>
 
+                  <button
+                    v-if="item.estado === 'PENDIENTE' && isMine(item)"
+                    type="button"
+                    class="rounded-lg p-2 text-gray-400 hover:bg-gray-100"
+                    aria-label="Editar garantía"
+                    @click="openEdit(item)"
+                  >
+                    <PencilSquareIcon class="h-5 w-5" />
+                  </button>
                   <button
                     v-if="authStore.isAdmin && item.estado === 'PENDIENTE'"
                     type="button"
@@ -429,7 +481,13 @@ onMounted(loadData)
 
     <BaseModal
       :open="modalOpen"
-      :title="actionMode === 'crear' ? 'Nueva garantía' : 'Aprobar garantía'"
+      :title="
+        actionMode === 'crear'
+          ? 'Nueva garantía'
+          : actionMode === 'editar'
+            ? 'Editar garantía'
+            : 'Aprobar garantía'
+      "
       max-width="lg"
       @close="modalOpen = false"
     >
@@ -477,6 +535,18 @@ onMounted(loadData)
           </div>
         </template>
 
+        <template v-else-if="actionMode === 'editar'">
+          <div>
+            <label class="mb-2 block text-sm font-medium text-gray-700">Motivo</label>
+            <textarea
+              v-model="form.motivo"
+              required
+              rows="4"
+              class="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#C56B86]"
+              placeholder="Describe el motivo de la garantía"
+            />
+          </div>
+        </template>
         <template v-else>
           <BaseSelect
             v-model="form.resolucion"

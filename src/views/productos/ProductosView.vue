@@ -13,9 +13,20 @@ import ProductoAccordion from './components/ProductoAccordion.vue'
 import ProductoModal from './components/ProductoModal.vue'
 
 import { getCategorias } from '@/api/categorias'
-import { registrarEntrada } from '@/api/inventario'
-import { activarProducto, createProducto, desactivarProducto, getProductos, updateProducto } from '@/api/productos'
-import { activarVariante, createVariante, desactivarVariante, getVariantes, updateVariante } from '@/api/variantes'
+import {
+  activarProducto,
+  createProducto,
+  desactivarProducto,
+  getProductos,
+  updateProducto,
+} from '@/api/productos'
+import {
+  activarVariante,
+  createVariante,
+  desactivarVariante,
+  getVariantes,
+  updateVariante,
+} from '@/api/variantes'
 import { getFriendlyError } from '@/utils/apiError'
 import { useClientPagination } from '@/composables/useClientPagination'
 import { showError, showSuccess } from '@/utils/notifications'
@@ -82,7 +93,7 @@ async function loadData() {
     productos.value = productItems.map((item) => ({
       id: item.id,
       categoriaId: item.categoria,
-      categoria: categoryMap.get(item.categoria) ?? 'Sin categoría',
+      categoria: item.categoria_nombre ?? categoryMap.get(item.categoria) ?? 'Sin categoría',
       nombre: item.nombre,
       descripcion: item.descripcion ?? '',
       activo: item.activo,
@@ -118,6 +129,7 @@ function editProduct(producto: Producto) {
 }
 
 function addVariant(producto: Producto) {
+  if (!producto.activo) return
   selectedProduct.value = producto
   selectedVariant.value = null
   modalMode.value = 'variante'
@@ -134,6 +146,7 @@ function editVariant(variante: Variante) {
 }
 
 function requestToggleProduct(producto: Producto) {
+  if (!authStore.isAdmin) return
   selectedProduct.value = producto
   selectedVariant.value = null
   deleteType.value = 'producto'
@@ -141,6 +154,7 @@ function requestToggleProduct(producto: Producto) {
 }
 
 function requestToggleVariant(variante: Variante) {
+  if (!authStore.isAdmin) return
   selectedVariant.value = variante
   selectedProduct.value = null
   deleteType.value = 'variante'
@@ -222,25 +236,8 @@ async function saveVariant(data: VarianteFormData) {
       await updateVariante(selectedVariant.value.id, payload)
       await showSuccess('Variante actualizada correctamente.')
     } else {
-      const createdVariant = await createVariante(payload)
-
-      if (data.stock > 0) {
-        try {
-          await registrarEntrada({
-            variante_id: createdVariant.id,
-            cantidad: data.stock,
-            observaciones: 'Stock inicial de la variante.',
-          })
-        } catch {
-          closeModal()
-          await loadData()
-          await showError(
-            'La variante se creó, pero no fue posible registrar el stock inicial. Puedes agregarlo desde Inventario.',
-          )
-          return
-        }
-      }
-
+      // El backend registra automáticamente el movimiento de inventario inicial.
+      await createVariante({ ...payload, stock: data.stock })
       await showSuccess('Variante creada correctamente.')
     }
 
@@ -302,7 +299,7 @@ onMounted(loadData)
         <p class="mt-1 text-sm text-gray-500">Administra los productos y sus variantes.</p>
       </div>
 
-      <BaseButton v-if="authStore.isAdmin" :disabled="!categorias.some((item) => item.activo)" @click="newProduct">
+      <BaseButton :disabled="!categorias.some((item) => item.activo)" @click="newProduct">
         <PlusIcon class="h-4 w-4" />
         Nuevo producto
       </BaseButton>
@@ -326,7 +323,7 @@ onMounted(loadData)
         v-for="producto in paginatedItems"
         :key="producto.id"
         :producto="producto"
-        :can-manage="authStore.isAdmin"
+        :can-toggle="authStore.isAdmin"
         @edit-product="editProduct"
         @toggle-product="requestToggleProduct"
         @add-variant="addVariant"
