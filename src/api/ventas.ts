@@ -209,7 +209,7 @@ function mapTicket(id: string, response: { data?: TicketApi } | TicketApi): Tick
     },
     empresa: item.empresa
       ? {
-          nombre: item.empresa.nombre ?? 'Belleza',
+          nombre: item.empresa.nombre?.trim() ?? '',
           telefono: item.empresa.telefono ?? '',
           direccion: item.empresa.direccion ?? '',
           rfc: item.empresa.rfc ?? '',

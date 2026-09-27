@@ -275,8 +275,13 @@ onMounted(loadCompany)
           <BaseInput
             v-model="form.nombreImpresora"
             label="Nombre de la impresora"
-            placeholder="Ej. POS-80"
+            placeholder="Ej. Nextep NE-510 (POS-58)"
           />
+
+          <p class="text-xs text-gray-500">
+            Al imprimir, selecciona la impresora y el papel de 58 mm en el cuadro del navegador.
+            El nombre de este campo es solo una referencia.
+          </p>
 
           <label
             class="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-4"
