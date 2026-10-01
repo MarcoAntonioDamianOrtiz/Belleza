@@ -1,5 +1,5 @@
 import api from './axios'
-import { getAllPages } from './pagination'
+import { getAllPages, getBackendPage } from './pagination'
 
 import { unwrapData } from '@/utils/apiResponse'
 
@@ -55,6 +55,19 @@ function mapDevolucion(item: DevolucionApi): Devolucion {
 export async function getDevoluciones(): Promise<Devolucion[]> {
   const items = await getAllPages<DevolucionApi>(api, '/devoluciones/', { page_size: 200 })
   return items.map(mapDevolucion)
+}
+
+export async function getDevolucionesPage(
+  page = 1,
+  pageSize = 10,
+  filtros?: { search?: string; estado?: string; fecha_desde?: string; fecha_hasta?: string },
+) {
+  const result = await getBackendPage<DevolucionApi>(api, '/devoluciones/', {
+    page,
+    pageSize,
+    params: filtros,
+  })
+  return { ...result, items: result.items.map(mapDevolucion) }
 }
 
 export async function getDevolucion(id: string): Promise<Devolucion> {

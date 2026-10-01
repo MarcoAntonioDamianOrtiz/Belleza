@@ -5,6 +5,8 @@ export interface MovimientoInventario {
   id: string
   variante: string
   varianteId?: string
+  productoNombre?: string
+  sku?: string
   tipo: TipoMovimientoInventario
   stockAnterior?: number
   stockNuevo?: number

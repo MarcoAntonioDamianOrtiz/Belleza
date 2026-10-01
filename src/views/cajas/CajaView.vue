@@ -53,7 +53,7 @@ const {
   dateFrom: historyDateFrom,
   dateTo: historyDateTo,
   matchesDate: matchesHistoryDate,
-} = useDateRangeFilter('30days')
+} = useDateRangeFilter('today')
 const filteredHistory = computed(() =>
   historial.value.filter((item) => matchesHistoryDate(item.fechaInicio)),
 )

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { ArrowLeftIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
@@ -10,11 +10,10 @@ import BaseSelect from '@/components/ui/BaseSelect.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 
-import { getMovimientosInventario } from '@/api/inventario'
-import { enrichMovements, loadInventoryCatalog } from './inventarioData'
+import { getMovimientosInventarioPage } from '@/api/inventario'
+import { enrichMovements } from './inventarioData'
 import { formatDate } from '@/utils/formatDate'
 import { getFriendlyError } from '@/utils/apiError'
-import { useClientPagination } from '@/composables/useClientPagination'
 import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 import { showError } from '@/utils/notifications'
 
@@ -25,7 +24,7 @@ const search = ref('')
 const typeFilter = ref<'TODOS' | TipoMovimientoInventario>('TODOS')
 const loading = ref(false)
 const movimientos = ref<MovimientoVista[]>([])
-const { dateFrom, dateTo, matchesDate } = useDateRangeFilter('30days')
+const { dateFrom, dateTo } = useDateRangeFilter('today')
 
 const typeOptions = [
   { label: 'Todos los movimientos', value: 'TODOS' },
@@ -37,21 +36,16 @@ const typeOptions = [
   { label: 'Cambios de producto', value: 'CAMBIO_PRODUCTO' },
 ]
 
-const filtered = computed(() => {
-  const term = search.value.trim().toLowerCase()
+const page = ref(1)
+const totalPages = ref(1)
+const count = ref(0)
+let requestId = 0
 
-  return movimientos.value.filter((item) => {
-    const matchesType = typeFilter.value === 'TODOS' || item.tipo === typeFilter.value
-
-    const matchesSearch =
-      !term ||
-      [item.producto, item.variante, item.sku, item.observaciones, item.usuario].some((value) =>
-        value.toLowerCase().includes(term),
-      )
-
-    return matchesType && matchesSearch && matchesDate(item.fecha)
-  })
-})
+function goToPage(value: number) {
+  if (page.value === value) return
+  page.value = value
+  void loadData()
+}
 
 function statusFor(type: TipoMovimientoInventario) {
   if (type === 'ENTRADA') {
@@ -79,21 +73,39 @@ function quantityLabel(item: MovimientoVista) {
   return String(item.cantidad)
 }
 
-const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filtered, 10)
-
 async function loadData() {
-  loading.value = true
-
+  const currentRequest = ++requestId
+  loading.value = !movimientos.value.length
   try {
-    const [catalog, items] = await Promise.all([loadInventoryCatalog(), getMovimientosInventario()])
-
-    movimientos.value = enrichMovements(items, catalog)
+    const result = await getMovimientosInventarioPage(page.value, 10, {
+      tipo: typeFilter.value === 'TODOS' ? undefined : typeFilter.value,
+      search: search.value.trim() || undefined,
+      fecha_desde: dateFrom.value || undefined,
+      fecha_hasta: dateTo.value || undefined,
+    })
+    const enriched = await enrichMovements(result.items)
+    if (currentRequest !== requestId) return
+    movimientos.value = enriched
+    count.value = result.count
+    totalPages.value = result.totalPages
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible cargar el historial.'))
+    if (currentRequest === requestId)
+      await showError(getFriendlyError(error, 'No fue posible cargar el historial.'))
   } finally {
-    loading.value = false
+    if (currentRequest === requestId) loading.value = false
   }
 }
+
+watch(search, (_value, _old, onCleanup) => {
+  page.value = 1
+  ++requestId
+  const timer = setTimeout(() => void loadData(), 300)
+  onCleanup(() => clearTimeout(timer))
+})
+watch([typeFilter, dateFrom, dateTo], () => {
+  page.value = 1
+  void loadData()
+})
 
 onMounted(loadData)
 </script>
@@ -138,7 +150,7 @@ onMounted(loadData)
     <div v-else>
       <div class="grid gap-3 lg:hidden">
         <article
-          v-for="item in paginatedItems"
+          v-for="item in movimientos"
           :key="item.id"
           class="interactive-lift-card rounded-2xl border border-[#ECECEC] bg-white p-4"
         >
@@ -185,7 +197,7 @@ onMounted(loadData)
         </article>
 
         <div
-          v-if="!filtered.length"
+          v-if="!movimientos.length"
           class="rounded-2xl border border-[#ECECEC] bg-white px-6 py-12 text-center text-gray-500"
         >
           No se encontraron movimientos.
@@ -209,7 +221,7 @@ onMounted(loadData)
             </thead>
 
             <tbody class="divide-y divide-gray-100">
-              <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
+              <tr v-for="item in movimientos" :key="item.id" class="interactive-lift-row">
                 <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                   {{ formatDate(item.fecha) }}
                 </td>
@@ -233,7 +245,7 @@ onMounted(loadData)
                 <td data-label="Usuario" class="px-5 py-4 text-gray-600">{{ item.usuario }}</td>
               </tr>
 
-              <tr v-if="!filtered.length">
+              <tr v-if="!movimientos.length">
                 <td colspan="8" class="px-6 py-12 text-center text-gray-500">
                   No se encontraron movimientos.
                 </td>
@@ -244,7 +256,7 @@ onMounted(loadData)
       </div>
     </div>
 
-    <div v-if="filtered.length > 10" class="mt-4">
+    <div v-if="count > 10" class="mt-4">
       <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
   </section>

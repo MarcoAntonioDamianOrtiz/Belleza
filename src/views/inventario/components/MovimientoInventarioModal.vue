@@ -21,6 +21,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   close: []
   submit: [data: MovimientoFormData]
+  search: [value: string]
 }>()
 
 function modalTitle() {
@@ -38,6 +39,7 @@ function modalTitle() {
       :variantes="variantes"
       :loading="loading"
       @submit="emit('submit', $event)"
+      @search="emit('search', $event)"
       @cancel="emit('close')"
     />
   </BaseModal>

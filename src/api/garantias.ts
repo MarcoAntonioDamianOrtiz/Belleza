@@ -1,5 +1,5 @@
 import api from './axios'
-import { getAllPages } from './pagination'
+import { getAllPages, getBackendPage } from './pagination'
 
 import { unwrapData } from '@/utils/apiResponse'
 
@@ -48,6 +48,19 @@ function mapGarantia(item: GarantiaApi): Garantia {
 export async function getGarantias(): Promise<Garantia[]> {
   const items = await getAllPages<GarantiaApi>(api, '/garantias/', { page_size: 200 })
   return items.map(mapGarantia)
+}
+
+export async function getGarantiasPage(
+  page = 1,
+  pageSize = 10,
+  filtros?: { search?: string; estado?: string; fecha_desde?: string; fecha_hasta?: string },
+) {
+  const result = await getBackendPage<GarantiaApi>(api, '/garantias/', {
+    page,
+    pageSize,
+    params: filtros,
+  })
+  return { ...result, items: result.items.map(mapGarantia) }
 }
 
 export async function getGarantia(id: string): Promise<Garantia> {

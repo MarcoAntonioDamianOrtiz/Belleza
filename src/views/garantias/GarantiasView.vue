@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   CheckCircleIcon,
   EyeIcon,
@@ -26,27 +26,45 @@ import {
   aprobarGarantia,
   createGarantia,
   finalizarGarantia,
-  getGarantias,
+  getGarantiasPage,
   updateGarantia,
   rechazarGarantia,
 } from '@/api/garantias'
 import { formatDate } from '@/utils/formatDate'
 import { useAuthStore } from '@/stores/auth'
 import { getFriendlyError } from '@/utils/apiError'
-import { useClientPagination } from '@/composables/useClientPagination'
 import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 import { showError, showSuccess } from '@/utils/notifications'
-import { buildVentaOptions, loadSoldVariantOptions, loadVentaCatalog } from '@/utils/ventaOptions'
+import { buildVentaOptions, loadSoldVariantOptions } from '@/utils/ventaOptions'
+import { getVentasPage } from '@/api/ventas'
+import { getVariantesPage } from '@/api/variantes'
 
 import type { Garantia, ResolucionGarantia } from '@/types/garantia'
-import type { SoldVariantOption, VentaCatalog } from '@/utils/ventaOptions'
+import type { SoldVariantOption } from '@/utils/ventaOptions'
+import type { VentaResumen } from '@/types/venta'
+import type { Variante } from '@/types/variante'
 
 type ActionMode = 'crear' | 'editar' | 'aprobar'
 
 const authStore = useAuthStore()
 
 const items = ref<Garantia[]>([])
-const catalog = ref<VentaCatalog | null>(null)
+const sales = ref<VentaResumen[]>([])
+const saleSelection = ref<VentaResumen | null>(null)
+const saleSearch = ref('')
+const salePage = ref(1)
+const saleTotalPages = ref(1)
+const replacementVariants = ref<Variante[]>([])
+const replacementSearch = ref('')
+const replacementPage = ref(1)
+const replacementTotalPages = ref(1)
+const page = ref(1)
+const totalPages = ref(1)
+const count = ref(0)
+let requestId = 0
+let saleRequestId = 0
+let saleDetailRequestId = 0
+let replacementRequestId = 0
 const soldVariants = ref<SoldVariantOption[]>([])
 const search = ref('')
 const statusFilter = ref('TODOS')
@@ -60,7 +78,7 @@ const finishOpen = ref(false)
 const actionMode = ref<ActionMode>('crear')
 const selected = ref<Garantia | null>(null)
 const formMessage = ref('')
-const { dateFrom, dateTo, matchesDate } = useDateRangeFilter('30days')
+const { dateFrom, dateTo } = useDateRangeFilter('today')
 
 const form = reactive({
   ventaId: '',
@@ -72,7 +90,12 @@ const form = reactive({
   varianteNuevaId: '',
 })
 
-const ventaOptions = computed(() => buildVentaOptions(catalog.value?.ventas ?? []))
+const ventaOptions = computed(() => buildVentaOptions([
+  ...sales.value,
+  ...(saleSelection.value && !sales.value.some((item) => item.id === saleSelection.value?.id)
+    ? [saleSelection.value]
+    : []),
+]))
 
 const variantOptions = computed(() =>
   soldVariants.value
@@ -100,7 +123,7 @@ const resolutionOptions = [
 ]
 
 const replacementVariantOptions = computed(() =>
-  (catalog.value?.variantes ?? [])
+  replacementVariants.value
     .filter(
       (item) =>
         item.activo &&
@@ -112,22 +135,6 @@ const replacementVariantOptions = computed(() =>
 const selectedSoldVariant = computed(() =>
   soldVariants.value.find((item) => item.value === form.varianteId),
 )
-
-const filtered = computed(() => {
-  const term = search.value.trim().toLowerCase()
-
-  return items.value.filter((item) => {
-    const matchesStatus = statusFilter.value === 'TODOS' || item.estado === statusFilter.value
-
-    const matchesSearch =
-      !term ||
-      [item.ventaFolio, item.producto, item.variante, item.motivo, item.usuario].some((value) =>
-        value.toLowerCase().includes(term),
-      )
-
-    return matchesStatus && matchesSearch && matchesDate(item.fecha)
-  })
-})
 
 function statusFor(estado: Garantia['estado']) {
   if (estado === 'APROBADA') {
@@ -145,35 +152,99 @@ function statusFor(estado: Garantia['estado']) {
   return { status: 'warning' as const, label: 'Pendiente' }
 }
 
-const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filtered, 10)
-
 async function loadData() {
-  loading.value = true
-
+  const currentRequest = ++requestId
+  loading.value = !items.value.length
   try {
-    const [guarantees, salesCatalog] = await Promise.all([getGarantias(), loadVentaCatalog()])
-
-    items.value = guarantees
-    catalog.value = salesCatalog
+    const result = await getGarantiasPage(page.value, 10, {
+      search: search.value.trim() || undefined,
+      estado: statusFilter.value === 'TODOS' ? undefined : statusFilter.value,
+      fecha_desde: dateFrom.value || undefined,
+      fecha_hasta: dateTo.value || undefined,
+    })
+    if (currentRequest !== requestId) return
+    items.value = result.items
+    count.value = result.count
+    totalPages.value = result.totalPages
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible cargar las garantías.'))
+    if (currentRequest === requestId)
+      await showError(getFriendlyError(error, 'No fue posible cargar las garantías.'))
   } finally {
-    loading.value = false
+    if (currentRequest === requestId) loading.value = false
   }
 }
 
+async function loadSales() {
+  const currentRequest = ++saleRequestId
+  try {
+    const result = await getVentasPage(salePage.value, 20, { search: saleSearch.value.trim() || undefined })
+    if (currentRequest !== saleRequestId) return
+    sales.value = result.items
+    saleTotalPages.value = result.totalPages
+  } catch (error) {
+    if (currentRequest === saleRequestId)
+      formMessage.value = getFriendlyError(error, 'No fue posible cargar las ventas.')
+  }
+}
+
+async function loadReplacements() {
+  const currentRequest = ++replacementRequestId
+  try {
+    const result = await getVariantesPage(replacementPage.value, 20, 'true', {
+      search: replacementSearch.value.trim() || undefined,
+    })
+    if (currentRequest !== replacementRequestId) return
+    replacementVariants.value = result.items
+    replacementTotalPages.value = result.totalPages
+  } catch (error) {
+    if (currentRequest === replacementRequestId)
+      formMessage.value = getFriendlyError(error, 'No fue posible cargar las variantes.')
+  }
+}
+
+function goToPage(value: number) { page.value = value; void loadData() }
+function goToSalePage(value: number) { salePage.value = value; void loadSales() }
+function goToReplacementPage(value: number) { replacementPage.value = value; void loadReplacements() }
+
+watch(search, (_value, _old, onCleanup) => {
+  page.value = 1
+  ++requestId
+  const timer = setTimeout(() => void loadData(), 300)
+  onCleanup(() => clearTimeout(timer))
+})
+watch([statusFilter, dateFrom, dateTo], () => { page.value = 1; void loadData() })
+watch(saleSearch, (_value, _old, onCleanup) => {
+  salePage.value = 1
+  ++saleRequestId
+  const timer = setTimeout(() => void loadSales(), 300)
+  onCleanup(() => clearTimeout(timer))
+})
+watch(replacementSearch, (_value, _old, onCleanup) => {
+  replacementPage.value = 1
+  ++replacementRequestId
+  const timer = setTimeout(() => void loadReplacements(), 300)
+  onCleanup(() => clearTimeout(timer))
+})
+watch([() => form.resolucion, modalOpen], () => {
+  if (modalOpen.value && actionMode.value === 'aprobar' && form.resolucion === 'CAMBIO_PRODUCTO')
+    void loadReplacements()
+})
+
 async function selectSale(value: string | number) {
   form.ventaId = String(value)
+  saleSelection.value = sales.value.find((item) => item.id === form.ventaId) ?? saleSelection.value
+  const currentRequest = ++saleDetailRequestId
   form.varianteId = ''
   soldVariants.value = []
   formMessage.value = ''
 
-  if (!form.ventaId || !catalog.value) return
+  if (!form.ventaId) return
 
   loadingSale.value = true
 
   try {
-    const { opciones } = await loadSoldVariantOptions(form.ventaId, catalog.value)
+    const { opciones } = await loadSoldVariantOptions(form.ventaId)
+    if (currentRequest !== saleDetailRequestId) return
 
     soldVariants.value = opciones
 
@@ -181,9 +252,10 @@ async function selectSale(value: string | number) {
       formMessage.value = 'Esta venta no tiene productos con garantía disponible.'
     }
   } catch (error) {
-    formMessage.value = getFriendlyError(error, 'No fue posible cargar los productos de la venta.')
+    if (currentRequest === saleDetailRequestId)
+      formMessage.value = getFriendlyError(error, 'No fue posible cargar los productos de la venta.')
   } finally {
-    loadingSale.value = false
+    if (currentRequest === saleDetailRequestId) loadingSale.value = false
   }
 }
 
@@ -191,6 +263,8 @@ function openCreate() {
   actionMode.value = 'crear'
   selected.value = null
   form.ventaId = ''
+  saleSelection.value = null
+  ++saleDetailRequestId
   form.varianteId = ''
   form.motivo = ''
   form.observaciones = ''
@@ -198,7 +272,10 @@ function openCreate() {
   form.varianteNuevaId = ''
   soldVariants.value = []
   formMessage.value = ''
+  salePage.value = 1
   modalOpen.value = true
+  if (saleSearch.value) saleSearch.value = ''
+  else void loadSales()
 }
 
 function isMine(item: Garantia) {
@@ -222,6 +299,8 @@ function openApprove(item: Garantia) {
   form.resolucion = 'REEMPLAZO'
   form.observaciones = ''
   form.varianteNuevaId = ''
+  replacementSearch.value = ''
+  replacementPage.value = 1
   modalOpen.value = true
 }
 
@@ -395,7 +474,7 @@ onMounted(loadData)
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
+            <tr v-for="item in items" :key="item.id" class="interactive-lift-row">
               <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
@@ -465,7 +544,7 @@ onMounted(loadData)
               </td>
             </tr>
 
-            <tr v-if="!filtered.length">
+            <tr v-if="!items.length">
               <td colspan="6" class="px-6 py-12 text-center text-gray-500">
                 No se encontraron garantías.
               </td>
@@ -475,7 +554,7 @@ onMounted(loadData)
       </div>
     </div>
 
-    <div v-if="filtered.length > 10" class="mt-4">
+    <div v-if="count > 10" class="mt-4">
       <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
 
@@ -493,6 +572,7 @@ onMounted(loadData)
     >
       <form class="space-y-5" @submit.prevent="submitModal">
         <template v-if="actionMode === 'crear'">
+          <SearchBar v-model="saleSearch" placeholder="Buscar folio o usuario..." />
           <BaseSelect
             :model-value="form.ventaId"
             label="Venta"
@@ -501,6 +581,7 @@ onMounted(loadData)
             required
             @update:model-value="selectSale"
           />
+          <BasePagination v-if="saleTotalPages > 1" :page="salePage" :total-pages="saleTotalPages" @change="goToSalePage" />
 
           <BaseLoader v-if="loadingSale" text="Cargando productos de la venta..." />
 
@@ -555,6 +636,7 @@ onMounted(loadData)
             required
           />
 
+          <SearchBar v-if="form.resolucion === 'CAMBIO_PRODUCTO'" v-model="replacementSearch" placeholder="Buscar producto de reemplazo..." />
           <BaseSelect
             v-if="form.resolucion === 'CAMBIO_PRODUCTO'"
             v-model="form.varianteNuevaId"
@@ -563,6 +645,7 @@ onMounted(loadData)
             placeholder="Selecciona la nueva variante"
             required
           />
+          <BasePagination v-if="form.resolucion === 'CAMBIO_PRODUCTO' && replacementTotalPages > 1" :page="replacementPage" :total-pages="replacementTotalPages" @change="goToReplacementPage" />
 
           <div>
             <label class="mb-2 block text-sm font-medium text-gray-700">Observaciones</label>

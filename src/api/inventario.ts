@@ -11,6 +11,8 @@ interface MovimientoApi {
   id: string
   variante: string
   variante_id?: string
+  producto_nombre?: string
+  sku?: string
   tipo: MovimientoInventario['tipo']
   stock_anterior?: number
   stock_nuevo?: number
@@ -27,6 +29,8 @@ function mapMovimiento(item: MovimientoApi): MovimientoInventario {
     id: item.id,
     variante: item.variante,
     varianteId: item.variante_id,
+    productoNombre: item.producto_nombre,
+    sku: item.sku,
     stockAnterior: item.stock_anterior,
     stockNuevo: item.stock_nuevo,
     stockDefectuosoAnterior: item.stock_defectuoso_anterior,
@@ -68,7 +72,7 @@ export async function registrarAjuste(payload: MovimientoPayload): Promise<Movim
 export async function getMovimientosInventarioPage(
   page = 1,
   pageSize = 50,
-  filtros?: { tipo?: MovimientoInventario['tipo']; variante_id?: string; search?: string },
+  filtros?: { tipo?: MovimientoInventario['tipo']; variante_id?: string; search?: string; fecha_desde?: string; fecha_hasta?: string },
 ) {
   const result = await getBackendPage<MovimientoApi>(api, '/inventario/', {
     page,

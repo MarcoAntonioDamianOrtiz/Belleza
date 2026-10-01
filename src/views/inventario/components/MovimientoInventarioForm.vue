@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import HelpTooltip from '@/components/ui/HelpTooltip.vue'
+import SearchBar from '@/components/common/SearchBar.vue'
 
 type TipoMovimiento = 'entrada' | 'salida' | 'ajuste'
 
@@ -33,7 +34,10 @@ export interface MovimientoFormData {
 const emit = defineEmits<{
   submit: [data: MovimientoFormData]
   cancel: []
+  search: [value: string]
 }>()
+
+const search = ref('')
 
 const form = reactive<MovimientoFormData>({
   varianteId: '',
@@ -79,6 +83,8 @@ function submitForm() {
       <h3 class="font-semibold text-gray-900">{{ title }}</h3>
       <p class="mt-1 text-sm text-gray-500">Ingresa la información del movimiento.</p>
     </div>
+
+    <SearchBar v-model="search" placeholder="Buscar producto, variante, SKU o código..." @update:model-value="emit('search', $event)" />
 
     <BaseSelect
       v-model="form.varianteId"

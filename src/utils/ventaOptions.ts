@@ -1,4 +1,4 @@
-import { getVariantes } from '@/api/variantes'
+import { getVariante, getVariantes } from '@/api/variantes'
 import { getVenta, getVentas } from '@/api/ventas'
 import { formatDate } from '@/utils/formatDate'
 
@@ -41,25 +41,23 @@ export function buildVentaOptions(ventas: VentaResumen[]): VentaOption[] {
 
 export async function loadSoldVariantOptions(
   ventaId: string,
-  catalog: VentaCatalog,
 ): Promise<{ detalle: VentaDetalle; opciones: SoldVariantOption[] }> {
   const detalle = await getVenta(ventaId)
 
-  const opciones = detalle.productos
+  const opciones = await Promise.all(detalle.productos
     .filter((linea) => linea.cantidadDisponible > 0)
-    .map((linea) => {
-    const variante = catalog.variantes.find((item) => item.id === linea.varianteId)
-
-    return {
-      value: linea.varianteId,
-      detalleVentaId: linea.detalleId,
-      label: `${linea.producto} - ${linea.variante} · ${linea.cantidadDisponible} disponibles`,
-      cantidadVendida: linea.cantidad,
-      cantidadDisponible: linea.cantidadDisponible,
-      garantiaMeses: variante?.garantiaMeses ?? null,
-      garantiaConocida: Boolean(variante),
-    }
-  })
+    .map(async (linea) => {
+      const variante = await getVariante(linea.varianteId).catch(() => null)
+      return {
+        value: linea.varianteId,
+        detalleVentaId: linea.detalleId,
+        label: `${linea.producto} - ${linea.variante} · ${linea.cantidadDisponible} disponibles`,
+        cantidadVendida: linea.cantidad,
+        cantidadDisponible: linea.cantidadDisponible,
+        garantiaMeses: variante?.garantiaMeses ?? null,
+        garantiaConocida: Boolean(variante),
+      }
+    }))
 
   return { detalle, opciones }
 }

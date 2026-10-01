@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import axios from 'axios'
 import {
@@ -15,6 +15,7 @@ import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseLoader from '@/components/ui/BaseLoader.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
+import BasePagination from '@/components/ui/BasePagination.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import SearchBar from '@/components/common/SearchBar.vue'
@@ -29,20 +30,20 @@ import VentaCarrito from './components/VentaCarrito.vue'
 import { getCajasActivas } from '@/api/cajas'
 import { getEmpresa } from '@/api/empresa'
 import { getMetodosPagoActivos } from '@/api/metodosPago'
-import { getProductos } from '@/api/productos'
-import { getVarianteByCode, getVariantes } from '@/api/variantes'
+import { getVarianteByCode, getVariantesPage } from '@/api/variantes'
 import {
   cancelVenta,
   createVenta,
   getTicketVenta,
   getVenta,
-  getVentas,
+  getVentasPage,
   reprintTicketVenta,
 } from '@/api/ventas'
 import { useAuthStore } from '@/stores/auth'
 import { useCarritoStore } from '@/stores/carrito'
 import { formatCurrency } from '@/utils/formatCurrency'
 import { getFriendlyError } from '@/utils/apiError'
+import { getDatePresetRange } from '@/composables/useDateRangeFilter'
 import { showError, showSuccess } from '@/utils/notifications'
 
 import type { Caja } from '@/types/caja'
@@ -80,6 +81,17 @@ const paymentError = ref('')
 
 const variantes = ref<VarianteVenta[]>([])
 const ventas = ref<VentaResumen[]>([])
+const variantPage = ref(1)
+const variantTotalPages = ref(1)
+const variantCount = ref(0)
+const salesPage = ref(1)
+const salesTotalPages = ref(1)
+const salesCount = ref(0)
+const salesDateFrom = ref(getDatePresetRange('today').from)
+const salesDateTo = ref(getDatePresetRange('today').to)
+let variantRequestId = 0
+let salesRequestId = 0
+let salesDateTimer: ReturnType<typeof setTimeout> | undefined
 const metodos = ref<MetodoPagoCatalogo[]>([])
 const cajas = ref<Caja[]>([])
 const empresa = ref<Empresa | null>(null)
@@ -132,60 +144,97 @@ function getUsableBoxes(boxes: Caja[]): Caja[] {
 
 
 
-const filteredVariants = computed(() => {
-  const term = search.value.trim().toLowerCase()
+const filteredVariants = computed(() => variantes.value)
 
-  if (!term) return variantes.value
+function mapSaleVariant(item: Awaited<ReturnType<typeof getVariantesPage>>['items'][number]): VarianteVenta {
+  return {
+    id: item.id,
+    producto: item.productoNombre,
+    variante: item.nombre,
+    sku: item.sku,
+    codigoBarras: item.codigoBarras,
+    stock: item.stock,
+    stockMinimo: item.stockMinimo,
+    precioMenudeo: item.precioMenudeo,
+    precioMayoreo: item.precioMayoreo,
+  }
+}
 
-  return variantes.value.filter((item) =>
-    [item.producto, item.variante, item.sku, item.codigoBarras].some((value) =>
-      value.toLowerCase().includes(term),
-    ),
-  )
+async function loadVariants() {
+  const currentRequest = ++variantRequestId
+  try {
+    const result = await getVariantesPage(variantPage.value, 20, undefined, { search: search.value })
+    if (currentRequest !== variantRequestId) return
+    variantes.value = result.items.map(mapSaleVariant)
+    variantCount.value = result.count
+    variantTotalPages.value = result.totalPages
+  } catch (error) {
+    if (currentRequest === variantRequestId)
+      await showError(getFriendlyError(error, 'No fue posible cargar las variantes.'))
+  }
+}
+
+async function loadSales() {
+  const currentRequest = ++salesRequestId
+  try {
+    const result = await getVentasPage(salesPage.value, 10, {
+      fecha_desde: salesDateFrom.value || undefined,
+      fecha_hasta: salesDateTo.value || undefined,
+    })
+    if (currentRequest !== salesRequestId) return
+    ventas.value = result.items
+    salesCount.value = result.count
+    salesTotalPages.value = result.totalPages
+  } catch (error) {
+    if (currentRequest === salesRequestId)
+      await showError(getFriendlyError(error, 'No fue posible cargar las ventas.'))
+  }
+}
+
+function goToVariantPage(value: number) {
+  variantPage.value = value
+  void loadVariants()
+}
+
+function goToSalesPage(value: number) {
+  salesPage.value = value
+  void loadSales()
+}
+
+function changeSalesDates(from: string, to: string) {
+  salesDateFrom.value = from
+  salesDateTo.value = to
+  salesPage.value = 1
+  if (salesDateTimer) clearTimeout(salesDateTimer)
+  salesDateTimer = setTimeout(() => void loadSales(), 0)
+}
+
+watch(search, (_value, _old, onCleanup) => {
+  variantPage.value = 1
+  ++variantRequestId
+  const timer = setTimeout(() => void loadVariants(), 300)
+  onCleanup(() => clearTimeout(timer))
 })
-
 
 async function loadData() {
   loading.value = true
-
   try {
-    const [products, variants, paymentMethods, boxes, sales] = await Promise.all([
-      getProductos(),
-      getVariantes(),
+    const [paymentMethods, boxes] = await Promise.all([
       getMetodosPagoActivos(),
       getCajasActivas(),
-      getVentas(),
+      loadVariants(),
+      loadSales(),
     ])
-
-    const productMap = new Map(products.map((item) => [item.id, item.nombre]))
-
-    variantes.value = variants.map((item) => ({
-      id: item.id,
-      producto: productMap.get(item.productoId) ?? 'Producto',
-      variante: item.nombre,
-      sku: item.sku,
-      codigoBarras: item.codigoBarras,
-      stock: item.stock,
-      stockMinimo: item.stockMinimo,
-      precioMenudeo: item.precioMenudeo,
-      precioMayoreo: item.precioMayoreo,
-    }))
-
     metodos.value = paymentMethods
     const usableBoxes = getUsableBoxes(boxes)
     cajas.value = usableBoxes
-    ventas.value = sales
-
     if (!paymentMethods.some((item) => item.id === paymentMethodId.value)) {
       paymentMethodId.value = paymentMethods[0]?.id ?? ''
     }
-
     const firstOpenBox = usableBoxes.find((item) => item.estado === 'ABIERTA')
-
     if (!usableBoxes.some((item) => item.id === selectedCajaId.value)) {
       selectedCajaId.value = firstOpenBox?.id ?? ''
     }
-
     try {
       empresa.value = await getEmpresa()
       carrito.ivaPorcentaje = empresa.value.iva
@@ -198,9 +247,7 @@ async function loadData() {
       }
     }
   } catch (error) {
-    await showError(
-      getFriendlyError(error, 'No fue posible cargar la información de ventas.'),
-    )
+    await showError(getFriendlyError(error, 'No fue posible cargar la información de ventas.'))
   } finally {
     loading.value = false
   }
@@ -221,14 +268,9 @@ async function scanCode() {
   try {
     const item = await getVarianteByCode(code)
 
-    const product = await getProductos()
-
-    const productName =
-      product.find((current) => current.id === item.productoId)?.nombre ?? 'Producto'
-
     const variante: VarianteVenta = {
       id: item.id,
-      producto: productName,
+      producto: item.productoNombre,
       variante: item.nombre,
       sku: item.sku,
       codigoBarras: item.codigoBarras,
@@ -658,7 +700,7 @@ async function confirmPayment() {
       )
     }
     try {
-      await loadData()
+      await Promise.all([loadVariants(), loadSales()])
     } catch {
       // No registrar la misma venta otra vez si solo falla la actualización del listado.
     }
@@ -723,7 +765,7 @@ async function confirmCancel() {
 
     await showSuccess(message)
 
-    await loadData()
+    await Promise.all([loadVariants(), loadSales()])
   } catch (error) {
     await showError(
       getFriendlyError(error, 'No fue posible cancelar la venta.'),
@@ -744,6 +786,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   closeCameraScanner()
+  if (salesDateTimer) clearTimeout(salesDateTimer)
 
   window.removeEventListener('resize', handleResize)
 })
@@ -1098,6 +1141,9 @@ onUnmounted(() => {
 
             </table>
           </div>
+          <div v-if="variantCount > 20" class="mt-4">
+            <BasePagination :page="variantPage" :total-pages="variantTotalPages" @change="goToVariantPage" />
+          </div>
 
         </div>
       </div>
@@ -1142,6 +1188,13 @@ onUnmounted(() => {
     <HistorialVentas
       v-else-if="!loading"
       :ventas="ventas"
+      :page="salesPage"
+      :total-pages="salesTotalPages"
+      :count="salesCount"
+      :date-from="salesDateFrom"
+      :date-to="salesDateTo"
+      @page="goToSalesPage"
+      @dates="changeSalesDates"
       :can-cancel="authStore.isAuthenticated"
       @view="showTicket"
       @reprint="reprintTicket"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import {
   AdjustmentsHorizontalIcon,
   ArrowDownTrayIcon,
@@ -16,7 +16,6 @@ import StatusChip from '@/components/common/StatusChip.vue'
 
 import { loadInventoryCatalog } from './inventarioData'
 import { getFriendlyError } from '@/utils/apiError'
-import { useClientPagination } from '@/composables/useClientPagination'
 import { showError } from '@/utils/notifications'
 
 import type { CatalogVariant } from './inventarioData'
@@ -25,19 +24,23 @@ const search = ref('')
 const loading = ref(false)
 const inventario = ref<CatalogVariant[]>([])
 
-const filteredInventory = computed(() => {
-  const term = search.value.trim().toLowerCase()
+const page = ref(1)
+const totalPages = ref(1)
+const count = ref(0)
+let requestId = 0
 
-  if (!term) return inventario.value
+function goToPage(value: number) {
+  if (value === page.value) return
+  page.value = value
+  void loadData()
+}
 
-  return inventario.value.filter((item) =>
-    [item.producto, item.variante, item.sku, item.codigoBarras].some((value) =>
-      value.toLowerCase().includes(term),
-    ),
-  )
+watch(search, (_value, _old, onCleanup) => {
+  page.value = 1
+  ++requestId
+  const timer = setTimeout(() => void loadData(), 300)
+  onCleanup(() => clearTimeout(timer))
 })
-
-const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filteredInventory, 10)
 
 function getStockStatus(item: CatalogVariant) {
   if (item.stock <= 0) {
@@ -52,14 +55,19 @@ function getStockStatus(item: CatalogVariant) {
 }
 
 async function loadData() {
-  loading.value = true
+  const currentRequest = ++requestId
+  loading.value = !inventario.value.length
 
   try {
-    inventario.value = await loadInventoryCatalog()
+    const result = await loadInventoryCatalog(page.value, 10, search.value)
+    if (currentRequest !== requestId) return
+    inventario.value = result.items
+    count.value = result.count
+    totalPages.value = result.totalPages
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible cargar el inventario.'))
+    if (currentRequest === requestId) await showError(getFriendlyError(error, 'No fue posible cargar el inventario.'))
   } finally {
-    loading.value = false
+    if (currentRequest === requestId) loading.value = false
   }
 }
 
@@ -128,7 +136,7 @@ onMounted(loadData)
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
+            <tr v-for="item in inventario" :key="item.id" class="interactive-lift-row">
               <td data-label="Producto" class="px-5 py-4 font-medium text-gray-900">
                 {{ item.producto }}
               </td>
@@ -152,7 +160,7 @@ onMounted(loadData)
               </td>
             </tr>
 
-            <tr v-if="!filteredInventory.length">
+            <tr v-if="!inventario.length">
               <td colspan="8" class="px-6 py-12 text-center text-gray-500">
                 No se encontraron productos.
               </td>
@@ -162,7 +170,7 @@ onMounted(loadData)
       </div>
     </div>
 
-    <div v-if="filteredInventory.length > 10" class="mt-4">
+    <div v-if="count > 10" class="mt-4">
       <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
   </section>

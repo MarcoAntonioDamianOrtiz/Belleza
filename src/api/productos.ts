@@ -1,5 +1,5 @@
 import api from './axios'
-import { getAllPages } from './pagination'
+import { getAllPages, getBackendPage } from './pagination'
 
 import { unwrapData } from '@/utils/apiResponse'
 
@@ -21,6 +21,23 @@ export async function getProductos(activo?: 'todos' | 'true' | 'false'): Promise
     page_size: 200,
     activo,
   })
+}
+
+export function getProductosPage(
+  page = 1,
+  pageSize = 10,
+  filtros?: { activo?: 'todos' | 'true' | 'false'; search?: string },
+) {
+  return getBackendPage<ProductoApi>(api, '/productos/', {
+    page,
+    pageSize,
+    params: { activo: filtros?.activo, search: filtros?.search?.trim() || undefined },
+  })
+}
+
+export async function getProducto(id: string): Promise<ProductoApi> {
+  const { data } = await api.get(`/productos/${encodeURIComponent(id)}/`)
+  return unwrapData<ProductoApi>(data)
 }
 
 export async function createProducto(payload: ProductoPayload): Promise<ProductoApi> {

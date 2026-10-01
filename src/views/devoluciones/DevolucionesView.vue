@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   CheckCircleIcon,
   EyeIcon,
@@ -27,7 +27,7 @@ import {
   aprobarDevolucion,
   createDevolucion,
   getDevolucion,
-  getDevoluciones,
+  getDevolucionesPage,
   getVentaParaDevolucion,
   rechazarDevolucion,
   updateDevolucion,
@@ -35,16 +35,16 @@ import {
 import { formatDate } from '@/utils/formatDate'
 import { useAuthStore } from '@/stores/auth'
 import { getFriendlyError } from '@/utils/apiError'
-import { useClientPagination } from '@/composables/useClientPagination'
 import { useDateRangeFilter } from '@/composables/useDateRangeFilter'
 import { showError, showSuccess } from '@/utils/notifications'
 import { buildVentaOptions } from '@/utils/ventaOptions'
-import { getVentas } from '@/api/ventas'
+import { getVentasPage } from '@/api/ventas'
 
 import { getMetodosPagoActivos } from '@/api/metodosPago'
 import type { MetodoPagoCatalogo } from '@/types/metodoPago'
 import type { Devolucion, TipoDevolucion } from '@/types/devolucion'
-import type { SoldVariantOption, VentaCatalog } from '@/utils/ventaOptions'
+import type { SoldVariantOption } from '@/utils/ventaOptions'
+import type { VentaResumen } from '@/types/venta'
 
 interface ReturnLine {
   detalleVentaId: string
@@ -56,7 +56,17 @@ interface ReturnLine {
 const authStore = useAuthStore()
 
 const items = ref<Devolucion[]>([])
-const catalog = ref<VentaCatalog | null>(null)
+const sales = ref<VentaResumen[]>([])
+const saleSelection = ref<VentaResumen | null>(null)
+const saleSearch = ref('')
+const salePage = ref(1)
+const saleTotalPages = ref(1)
+const page = ref(1)
+const totalPages = ref(1)
+const count = ref(0)
+let requestId = 0
+let saleRequestId = 0
+let saleDetailRequestId = 0
 const soldVariants = ref<SoldVariantOption[]>([])
 const selectedLines = ref<ReturnLine[]>([])
 const saleAvailability = ref<
@@ -83,7 +93,7 @@ const approveOpen = ref(false)
 const rejectOpen = ref(false)
 const selected = ref<Devolucion | null>(null)
 const formMessage = ref('')
-const { dateFrom, dateTo, matchesDate } = useDateRangeFilter('30days')
+const { dateFrom, dateTo } = useDateRangeFilter('today')
 
 const form = reactive({
   ventaId: '',
@@ -100,7 +110,12 @@ const editForm = reactive({
   metodoPagoReembolsoId: '',
 })
 
-const ventaOptions = computed(() => buildVentaOptions(catalog.value?.ventas ?? []))
+const ventaOptions = computed(() => buildVentaOptions([
+  ...sales.value,
+  ...(saleSelection.value && !sales.value.some((item) => item.id === saleSelection.value?.id)
+    ? [saleSelection.value]
+    : []),
+]))
 
 const metodoOptions = computed(() =>
   metodosReembolso.value.map((item) => ({ label: item.nombre, value: item.id })),
@@ -139,22 +154,6 @@ const statusOptions = [
   { label: 'Canceladas', value: 'CANCELADA' },
 ]
 
-const filtered = computed(() => {
-  const term = search.value.trim().toLowerCase()
-
-  return items.value.filter((item) => {
-    const matchesStatus = statusFilter.value === 'TODOS' || item.estado === statusFilter.value
-
-    const matchesSearch =
-      !term ||
-      [item.ventaFolio, item.tipo, item.motivo, item.usuario].some((value) =>
-        value.toLowerCase().includes(term),
-      )
-
-    return matchesStatus && matchesSearch && matchesDate(item.fecha)
-  })
-})
-
 function statusFor(estado: Devolucion['estado']) {
   if (estado === 'APROBADA') {
     return { status: 'success' as const, label: 'Aprobada' }
@@ -171,30 +170,66 @@ function statusFor(estado: Devolucion['estado']) {
   return { status: 'warning' as const, label: 'Pendiente' }
 }
 
-const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filtered, 10)
-
 async function loadData() {
-  loading.value = true
-
+  const currentRequest = ++requestId
+  loading.value = !items.value.length
   try {
-    const [returns, ventas, methods] = await Promise.all([
-      getDevoluciones(),
-      getVentas(),
-      getMetodosPagoActivos(),
+    const [result, methods] = await Promise.all([
+      getDevolucionesPage(page.value, 10, {
+        search: search.value.trim() || undefined,
+        estado: statusFilter.value === 'TODOS' ? undefined : statusFilter.value,
+        fecha_desde: dateFrom.value || undefined,
+        fecha_hasta: dateTo.value || undefined,
+      }),
+      metodosReembolso.value.length ? Promise.resolve(metodosReembolso.value) : getMetodosPagoActivos(),
     ])
-
-    items.value = returns
-    catalog.value = { ventas, variantes: [] }
+    if (currentRequest !== requestId) return
+    items.value = result.items
+    count.value = result.count
+    totalPages.value = result.totalPages
     metodosReembolso.value = methods
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible cargar las devoluciones.'))
+    if (currentRequest === requestId)
+      await showError(getFriendlyError(error, 'No fue posible cargar las devoluciones.'))
   } finally {
-    loading.value = false
+    if (currentRequest === requestId) loading.value = false
   }
 }
 
+async function loadSales() {
+  const currentRequest = ++saleRequestId
+  try {
+    const result = await getVentasPage(salePage.value, 20, { search: saleSearch.value.trim() || undefined })
+    if (currentRequest !== saleRequestId) return
+    sales.value = result.items
+    saleTotalPages.value = result.totalPages
+  } catch (error) {
+    if (currentRequest === saleRequestId)
+      formMessage.value = getFriendlyError(error, 'No fue posible cargar las ventas.')
+  }
+}
+
+function goToPage(value: number) { page.value = value; void loadData() }
+function goToSalePage(value: number) { salePage.value = value; void loadSales() }
+
+watch(search, (_value, _old, onCleanup) => {
+  page.value = 1
+  ++requestId
+  const timer = setTimeout(() => void loadData(), 300)
+  onCleanup(() => clearTimeout(timer))
+})
+watch([statusFilter, dateFrom, dateTo], () => { page.value = 1; void loadData() })
+watch(saleSearch, (_value, _old, onCleanup) => {
+  salePage.value = 1
+  ++saleRequestId
+  const timer = setTimeout(() => void loadSales(), 300)
+  onCleanup(() => clearTimeout(timer))
+})
+
 async function selectSale(value: string | number) {
   form.ventaId = String(value)
+  saleSelection.value = sales.value.find((item) => item.id === form.ventaId) ?? saleSelection.value
+  const currentRequest = ++saleDetailRequestId
   form.detalleVentaId = ''
   form.cantidad = 1
   selectedLines.value = []
@@ -202,14 +237,15 @@ async function selectSale(value: string | number) {
   saleAvailability.value = []
   formMessage.value = ''
 
-  if (!form.ventaId || !catalog.value) return
+  if (!form.ventaId) return
 
   loadingSale.value = true
 
   try {
-    const venta = catalog.value.ventas.find((item) => item.id === form.ventaId)
+    const venta = saleSelection.value
     if (!venta) throw new Error('Selecciona una venta válida.')
     const respuesta = await getVentaParaDevolucion(venta.folio)
+    if (currentRequest !== saleDetailRequestId) return
     const opciones: SoldVariantOption[] = respuesta.productos
       .filter((item) => item.disponible_devolucion > 0)
       .map((item) => ({
@@ -236,14 +272,17 @@ async function selectSale(value: string | number) {
       formMessage.value = 'Esta venta no tiene unidades disponibles para devolver.'
     }
   } catch (error) {
-    formMessage.value = getFriendlyError(error, 'No fue posible cargar los productos de la venta.')
+    if (currentRequest === saleDetailRequestId)
+      formMessage.value = getFriendlyError(error, 'No fue posible cargar los productos de la venta.')
   } finally {
-    loadingSale.value = false
+    if (currentRequest === saleDetailRequestId) loadingSale.value = false
   }
 }
 
 function openCreate() {
   form.ventaId = ''
+  saleSelection.value = null
+  ++saleDetailRequestId
   form.metodoPagoReembolsoId = ''
   form.tipo = 'NORMAL'
   form.motivo = ''
@@ -252,7 +291,10 @@ function openCreate() {
   soldVariants.value = []
   selectedLines.value = []
   formMessage.value = ''
+  salePage.value = 1
   modalOpen.value = true
+  if (saleSearch.value) saleSearch.value = ''
+  else void loadSales()
 }
 
 async function openDetail(item: Devolucion) {
@@ -481,7 +523,7 @@ onMounted(loadData)
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
+            <tr v-for="item in items" :key="item.id" class="interactive-lift-row">
               <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
@@ -542,7 +584,7 @@ onMounted(loadData)
               </td>
             </tr>
 
-            <tr v-if="!filtered.length">
+            <tr v-if="!items.length">
               <td colspan="6" class="px-6 py-12 text-center text-gray-500">
                 No se encontraron devoluciones.
               </td>
@@ -552,12 +594,13 @@ onMounted(loadData)
       </div>
     </div>
 
-    <div v-if="filtered.length > 10" class="mt-4">
+    <div v-if="count > 10" class="mt-4">
       <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
 
     <BaseModal :open="modalOpen" title="Nueva devolución" max-width="lg" @close="modalOpen = false">
       <form class="space-y-5" @submit.prevent="saveReturn">
+        <SearchBar v-model="saleSearch" placeholder="Buscar folio o usuario..." />
         <BaseSelect
           :model-value="form.ventaId"
           label="Venta"
@@ -566,6 +609,7 @@ onMounted(loadData)
           required
           @update:model-value="selectSale"
         />
+        <BasePagination v-if="saleTotalPages > 1" :page="salePage" :total-pages="saleTotalPages" @change="goToSalePage" />
 
         <BaseSelect
           v-model="form.tipo"

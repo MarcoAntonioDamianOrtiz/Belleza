@@ -66,10 +66,15 @@ function mapVentaResumen(item: VentaResumenApi): VentaResumen {
   }
 }
 
-export async function getVentasPage(page = 1, pageSize = 10) {
+export async function getVentasPage(
+  page = 1,
+  pageSize = 10,
+  filtros?: { search?: string; fecha_desde?: string; fecha_hasta?: string },
+) {
   const result = await getBackendPage<VentaResumenApi>(api, '/ventas/', {
     page,
     pageSize,
+    params: filtros,
   })
 
   return {

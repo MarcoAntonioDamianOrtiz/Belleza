@@ -2,12 +2,15 @@ import api from './axios'
 import { getAllPages, getBackendPage } from './pagination'
 
 import { unwrapData } from '@/utils/apiResponse'
+import { getProducto } from './productos'
 
 import type { Variante, VariantePayload } from '@/types/variante'
 
 interface VarianteApi {
   id: string
   producto: string
+  producto_nombre?: string
+  productoNombre?: string
   codigo_barras: string
   sku: string
   nombre: string
@@ -27,6 +30,7 @@ function mapVariante(item: VarianteApi): Variante {
   return {
     id: item.id,
     productoId: item.producto,
+    productoNombre: item.producto_nombre ?? item.productoNombre ?? '',
     codigoBarras: item.codigo_barras,
     sku: item.sku,
     nombre: item.nombre,
@@ -47,17 +51,41 @@ export async function getVariantesPage(
   page = 1,
   pageSize = 10,
   activo?: 'todos' | 'true' | 'false',
+  filtros?: { search?: string; producto?: string },
 ) {
   const result = await getBackendPage<VarianteApi>(api, '/variantes/', {
     page,
     pageSize,
-    params: { activo },
+    params: { activo, search: filtros?.search?.trim() || undefined, producto: filtros?.producto },
   })
 
+  const items = await Promise.all(result.items.map(async (item) => {
+    const mapped = mapVariante(item)
+    if (!mapped.productoNombre && mapped.productoId) {
+      mapped.productoNombre = (await getProducto(mapped.productoId)).nombre
+    }
+    return mapped
+  }))
   return {
     ...result,
-    items: result.items.map(mapVariante),
+    items,
   }
+}
+
+export async function getVariantesByProduct(producto: string, activo?: 'todos' | 'true' | 'false') {
+  const items = await getAllPages<VarianteApi>(api, '/variantes/', {
+    producto,
+    activo,
+    page_size: 200,
+  })
+  return items.map(mapVariante)
+}
+
+export async function getVariante(id: string): Promise<Variante> {
+  const { data } = await api.get(`/variantes/${encodeURIComponent(id)}/`)
+  const item = mapVariante(unwrapData<VarianteApi>(data))
+  if (!item.productoNombre && item.productoId) item.productoNombre = (await getProducto(item.productoId)).nombre
+  return item
 }
 
 export async function getVariantes(activo?: 'todos' | 'true' | 'false'): Promise<Variante[]> {
@@ -70,8 +98,9 @@ export async function getVariantes(activo?: 'todos' | 'true' | 'false'): Promise
 
 export async function getVarianteByCode(codigo: string): Promise<Variante> {
   const { data } = await api.get(`/variantes/codigo/${encodeURIComponent(codigo)}/`)
-
-  return mapVariante(unwrapData<VarianteApi>(data))
+  const item = mapVariante(unwrapData<VarianteApi>(data))
+  if (!item.productoNombre && item.productoId) item.productoNombre = (await getProducto(item.productoId)).nombre
+  return item
 }
 
 export async function createVariante(payload: VariantePayload): Promise<Variante> {

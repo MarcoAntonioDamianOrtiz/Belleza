@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
@@ -17,18 +17,18 @@ import {
   activarProducto,
   createProducto,
   desactivarProducto,
-  getProductos,
+  getProductosPage,
   updateProducto,
 } from '@/api/productos'
 import {
   activarVariante,
   createVariante,
   desactivarVariante,
-  getVariantes,
+  getVariantesByProduct,
+  getVariantesPage,
   updateVariante,
 } from '@/api/variantes'
 import { getFriendlyError } from '@/utils/apiError'
-import { useClientPagination } from '@/composables/useClientPagination'
 import { showError, showSuccess } from '@/utils/notifications'
 import { useAuthStore } from '@/stores/auth'
 
@@ -54,43 +54,30 @@ const selectedVariant = ref<Variante | null>(null)
 const confirmOpen = ref(false)
 const deleteType = ref<'producto' | 'variante' | null>(null)
 
-const filteredProducts = computed(() => {
-  const term = search.value.trim().toLowerCase()
-
-  if (!term) return productos.value
-
-  return productos.value.filter((producto) => {
-    const productMatch =
-      producto.nombre.toLowerCase().includes(term) ||
-      producto.categoria.toLowerCase().includes(term)
-
-    const variantMatch = producto.variantes.some((variante) =>
-      [variante.nombre, variante.sku, variante.codigoBarras].some((value) =>
-        value.toLowerCase().includes(term),
-      ),
-    )
-
-    return productMatch || variantMatch
-  })
-})
-
-const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filteredProducts, 10)
+const page = ref(1)
+const totalPages = ref(1)
+const count = ref(0)
+let requestId = 0
 
 async function loadData() {
-  loading.value = true
+  const currentRequest = ++requestId
+  loading.value = !productos.value.length
 
   try {
-    const [categoryItems, productItems, variantItems] = await Promise.all([
-      getCategorias(),
-      getProductos(authStore.isAdmin ? 'todos' : undefined),
-      getVariantes(authStore.isAdmin ? 'todos' : undefined),
-    ])
+    if (!categorias.value.length) categorias.value = await getCategorias()
+    const result = await getProductosPage(page.value, 10, {
+      activo: authStore.isAdmin ? 'todos' : undefined,
+      search: search.value,
+    })
+    const variantGroups = await Promise.all(
+      result.items.map((item) =>
+        getVariantesByProduct(item.id, authStore.isAdmin ? 'todos' : undefined),
+      ),
+    )
+    if (currentRequest !== requestId) return
 
-    categorias.value = categoryItems
-
-    const categoryMap = new Map(categoryItems.map((item) => [item.id, item.nombre]))
-
-    productos.value = productItems.map((item) => ({
+    const categoryMap = new Map(categorias.value.map((item) => [item.id, item.nombre]))
+    productos.value = result.items.map((item, index) => ({
       id: item.id,
       categoriaId: item.categoria,
       categoria: item.categoria_nombre ?? categoryMap.get(item.categoria) ?? 'Sin categoría',
@@ -99,14 +86,30 @@ async function loadData() {
       activo: item.activo,
       fechaCreacion: item.fecha_creacion,
       fechaActualizacion: item.fecha_actualizacion,
-      variantes: variantItems.filter((variante) => variante.productoId === item.id),
+      variantes: variantGroups[index] ?? [],
     }))
+    count.value = result.count
+    totalPages.value = result.totalPages
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible cargar los productos.'))
+    if (currentRequest === requestId)
+      await showError(getFriendlyError(error, 'No fue posible cargar los productos.'))
   } finally {
-    loading.value = false
+    if (currentRequest === requestId) loading.value = false
   }
 }
+
+function goToPage(value: number) {
+  if (value === page.value) return
+  page.value = value
+  void loadData()
+}
+
+watch(search, (_value, _old, onCleanup) => {
+  page.value = 1
+  ++requestId
+  const timer = setTimeout(() => void loadData(), 300)
+  onCleanup(() => clearTimeout(timer))
+})
 
 function closeModal() {
   modalOpen.value = false
@@ -194,28 +197,17 @@ async function saveVariant(data: VarianteFormData) {
   saving.value = true
 
   try {
-    const currentVariants = productos.value.flatMap((producto) => producto.variantes)
     const normalizedSku = data.sku.trim().toLowerCase()
     const normalizedBarcode = data.codigoBarras.trim().toLowerCase()
-
-    const duplicateSku = currentVariants.find(
-      (variante) =>
-        variante.id !== selectedVariant.value?.id &&
-        variante.sku.trim().toLowerCase() === normalizedSku,
-    )
-
-    if (duplicateSku) {
+    const [skuMatches, barcodeMatches] = await Promise.all([
+      getVariantesPage(1, 10, 'todos', { search: data.sku.trim() }),
+      getVariantesPage(1, 10, 'todos', { search: data.codigoBarras.trim() }),
+    ])
+    if (skuMatches.items.some((item) => item.id !== selectedVariant.value?.id && item.sku.trim().toLowerCase() === normalizedSku)) {
       await showError('Ya existe una variante con ese SKU. Usa uno diferente.')
       return
     }
-
-    const duplicateBarcode = currentVariants.find(
-      (variante) =>
-        variante.id !== selectedVariant.value?.id &&
-        variante.codigoBarras.trim().toLowerCase() === normalizedBarcode,
-    )
-
-    if (duplicateBarcode) {
+    if (barcodeMatches.items.some((item) => item.id !== selectedVariant.value?.id && item.codigoBarras.trim().toLowerCase() === normalizedBarcode)) {
       await showError('Ya existe una variante con ese código de barras. Usa uno diferente.')
       return
     }
@@ -320,7 +312,7 @@ onMounted(loadData)
 
     <div v-else class="space-y-4">
       <ProductoAccordion
-        v-for="producto in paginatedItems"
+        v-for="producto in productos"
         :key="producto.id"
         :producto="producto"
         :can-toggle="authStore.isAdmin"
@@ -332,14 +324,14 @@ onMounted(loadData)
       />
 
       <BasePagination
-        v-if="filteredProducts.length > 10"
+        v-if="count > 10"
         :page="page"
         :total-pages="totalPages"
         @change="goToPage"
       />
 
       <div
-        v-if="!filteredProducts.length"
+        v-if="!productos.length"
         class="rounded-2xl border border-[#ECECEC] bg-white p-12 text-center"
       >
         <p class="font-medium text-gray-900">No se encontraron productos</p>

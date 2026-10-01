@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ArrowLeftIcon, PlusIcon } from '@heroicons/vue/24/outline'
 
 import AppBreadcrumb from '@/components/layout/AppBreadcrumb.vue'
@@ -10,17 +10,22 @@ import SearchBar from '@/components/common/SearchBar.vue'
 import StatusChip from '@/components/common/StatusChip.vue'
 import MovimientoInventarioModal from './components/MovimientoInventarioModal.vue'
 
-import { getMovimientosInventario, registrarSalida } from '@/api/inventario'
+import { getMovimientosInventarioPage, registrarSalida } from '@/api/inventario'
 import { enrichMovements, loadInventoryCatalog } from './inventarioData'
 import { formatDate } from '@/utils/formatDate'
 import { getFriendlyError } from '@/utils/apiError'
-import { useClientPagination } from '@/composables/useClientPagination'
 import { showError, showSuccess } from '@/utils/notifications'
 
 import type { MovimientoFormData } from './components/MovimientoInventarioForm.vue'
 import type { CatalogVariant, MovimientoVista } from './inventarioData'
 
 const search = ref('')
+const variantSearch = ref('')
+const page = ref(1)
+const totalPages = ref(1)
+const count = ref(0)
+let requestId = 0
+let catalogRequestId = 0
 const loading = ref(false)
 const saving = ref(false)
 const modalOpen = ref(false)
@@ -35,39 +40,60 @@ const variantesOptions = computed(() =>
   })),
 )
 
-const filtered = computed(() => {
-  const term = search.value.trim().toLowerCase()
-
-  return movimientos.value
-    .filter((item) => item.tipo === 'SALIDA')
-    .filter(
-      (item) =>
-        !term ||
-        [item.producto, item.variante, item.sku, item.observaciones, item.usuario].some((value) =>
-          value.toLowerCase().includes(term),
-        ),
-    )
-})
-
-const { page, totalPages, paginatedItems, goToPage } = useClientPagination(filtered, 10)
+function goToPage(value: number) {
+  if (page.value === value) return
+  page.value = value
+  void loadData()
+}
 
 async function loadData() {
-  loading.value = true
-
+  const currentRequest = ++requestId
+  loading.value = !movimientos.value.length
   try {
-    const [catalogItems, movementItems] = await Promise.all([
-      loadInventoryCatalog(),
-      getMovimientosInventario(),
-    ])
-
-    catalog.value = catalogItems
-    movimientos.value = enrichMovements(movementItems, catalogItems)
+    const result = await getMovimientosInventarioPage(page.value, 10, {
+      tipo: 'SALIDA',
+      search: search.value.trim() || undefined,
+    })
+    const enriched = await enrichMovements(result.items)
+    if (currentRequest !== requestId) return
+    movimientos.value = enriched
+    count.value = result.count
+    totalPages.value = result.totalPages
   } catch (error) {
-    await showError(getFriendlyError(error, 'No fue posible cargar los movimientos.'))
+    if (currentRequest === requestId)
+      await showError(getFriendlyError(error, 'No fue posible cargar los movimientos.'))
   } finally {
-    loading.value = false
+    if (currentRequest === requestId) loading.value = false
   }
 }
+
+async function loadOptions() {
+  const currentRequest = ++catalogRequestId
+  try {
+    const result = await loadInventoryCatalog(1, 20, variantSearch.value)
+    if (currentRequest === catalogRequestId) catalog.value = result.items
+  } catch (error) {
+    if (currentRequest === catalogRequestId)
+      await showError(getFriendlyError(error, 'No fue posible cargar las variantes.'))
+  }
+}
+
+watch(search, (_value, _old, onCleanup) => {
+  page.value = 1
+  ++requestId
+  const timer = setTimeout(() => void loadData(), 300)
+  onCleanup(() => clearTimeout(timer))
+})
+watch(variantSearch, (_value, _old, onCleanup) => {
+  if (!modalOpen.value) return
+  ++catalogRequestId
+  const timer = setTimeout(() => void loadOptions(), 300)
+  onCleanup(() => clearTimeout(timer))
+})
+watch(modalOpen, (open) => {
+  if (open) void loadOptions()
+  else { ++catalogRequestId; variantSearch.value = ''; catalog.value = [] }
+})
 
 async function saveMovement(data: MovimientoFormData) {
   saving.value = true
@@ -142,7 +168,7 @@ onMounted(loadData)
           </thead>
 
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in paginatedItems" :key="item.id" class="interactive-lift-row">
+            <tr v-for="item in movimientos" :key="item.id" class="interactive-lift-row">
               <td data-label="Fecha" class="whitespace-nowrap px-5 py-4 text-gray-600">
                 {{ formatDate(item.fecha) }}
               </td>
@@ -160,7 +186,7 @@ onMounted(loadData)
               <td data-label="Usuario" class="px-5 py-4 text-gray-600">{{ item.usuario }}</td>
             </tr>
 
-            <tr v-if="!filtered.length">
+            <tr v-if="!movimientos.length">
               <td colspan="7" class="px-6 py-12 text-center text-gray-500">
                 No se encontraron movimientos.
               </td>
@@ -170,7 +196,7 @@ onMounted(loadData)
       </div>
     </div>
 
-    <div v-if="filtered.length > 10" class="mt-4">
+    <div v-if="count > 10" class="mt-4">
       <BasePagination :page="page" :total-pages="totalPages" @change="goToPage" />
     </div>
 
@@ -178,6 +204,7 @@ onMounted(loadData)
       :open="modalOpen"
       tipo="salida"
       :variantes="variantesOptions"
+      @search="variantSearch = $event"
       :loading="saving"
       @close="modalOpen = false"
       @submit="saveMovement"
