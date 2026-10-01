@@ -105,7 +105,6 @@ onBeforeUnmount(() => {
             <span>{{ item.cantidad }}</span>
           </div>
           <p class="mt-1 text-right text-xs text-gray-500">
-            {{ formatCurrency(item.precioUnitario) }} ·
             {{ formatCurrency(item.subtotal) }}
           </p>
         </div>
