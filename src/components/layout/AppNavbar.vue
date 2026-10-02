@@ -17,7 +17,15 @@ const menuOpen = ref(false)
 
 const initial = computed(() => authStore.user?.nombre?.charAt(0).toUpperCase() ?? 'U')
 
-const roleLabel = computed(() => (authStore.user?.rol === 1 ? 'Administrador' : 'Empleado'))
+const roleLabel = computed(() => {
+  const rol = authStore.user?.rol
+
+  if (rol === 0) return 'Superadministrador'
+  if (rol === 1) return 'Administrador'
+  if (rol === 2) return 'Empleado'
+
+  return 'Usuario'
+})
 
 async function handleLogout() {
   menuOpen.value = false
@@ -40,7 +48,11 @@ async function handleLogout() {
         <Bars3Icon class="h-6 w-6" />
       </button>
 
-      <p class="max-w-[11rem] truncate text-xs font-medium text-gray-700 sm:max-w-none sm:text-sm">Sistema de punto de venta</p>
+      <p
+        class="max-w-[11rem] truncate text-xs font-medium text-gray-700 sm:max-w-none sm:text-sm"
+      >
+        Sistema de punto de venta
+      </p>
     </div>
 
     <div class="relative">
@@ -59,7 +71,10 @@ async function handleLogout() {
           <p class="text-sm font-medium text-gray-800">
             {{ authStore.user?.nombre ?? 'Usuario' }}
           </p>
-          <p class="text-xs text-gray-500">{{ roleLabel }}</p>
+
+          <p class="text-xs text-gray-500">
+            {{ roleLabel }}
+          </p>
         </div>
 
         <ChevronDownIcon class="hidden h-4 w-4 text-gray-400 sm:block" />
